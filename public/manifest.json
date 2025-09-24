@@ -1,0 +1,21 @@
+{
+  "name": "Un Día Más - Juego de Supervivencia",
+  "short_name": "Un Día Más",
+  "description": "Sobrevive el máximo número de días posible en un mundo apocalíptico",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#0b132b",
+  "theme_color": "#0b132b",
+  "orientation": "portrait",
+  "icons": [
+    {
+      "src": "/icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ],
+  "categories": ["games", "entertainment"],
+  "lang": "es",
+  "dir": "ltr"
+}

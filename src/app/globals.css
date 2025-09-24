@@ -1,0 +1,213 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Estilos globales del juego */
+@layer base {
+  html {
+    font-family: 'Inter', system-ui, sans-serif;
+  }
+  
+  body {
+    margin: 0;
+    padding: 0;
+    overflow-x: hidden;
+    background: #0b132b;
+    color: white;
+  }
+  
+  /* Prevenir zoom en móvil */
+  input, textarea, select {
+    font-size: 16px;
+  }
+}
+
+@layer components {
+  /* Efectos de pantalla según el estado */
+  .screen-effect-hunger {
+    filter: hue-rotate(0deg) saturate(150%) brightness(110%);
+  }
+  
+  .screen-effect-thirst {
+    filter: blur(1px);
+  }
+  
+  .screen-effect-infected {
+    filter: hue-rotate(90deg) saturate(150%);
+  }
+  
+  .screen-effect-cold {
+    filter: brightness(75%);
+  }
+  
+  /* Animaciones personalizadas */
+  .animate-pulse-red {
+    animation: pulse-red 2s infinite;
+  }
+  
+  .animate-pulse-blue {
+    animation: pulse-blue 2s infinite;
+  }
+  
+  .animate-shake {
+    animation: shake 0.5s ease-in-out;
+  }
+  
+  .animate-fade-in {
+    animation: fade-in 0.3s ease-in-out;
+  }
+  
+  .animate-slide-up {
+    animation: slide-up 0.3s ease-out;
+  }
+}
+
+@layer utilities {
+  /* Utilidades específicas del juego */
+  .text-shadow {
+    text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.8);
+  }
+  
+  .text-shadow-lg {
+    text-shadow: 4px 4px 8px rgba(0, 0, 0, 0.8);
+  }
+  
+  .bg-apocalypse-dark {
+    background-color: #0b132b;
+  }
+  
+  .bg-apocalypse-medium {
+    background-color: #13315c;
+  }
+  
+  .bg-apocalypse-light {
+    background-color: #1e3a8a;
+  }
+  
+  .text-apocalypse-accent {
+    color: #ffd447;
+  }
+  
+  .text-apocalypse-secondary {
+    color: #7cf5ff;
+  }
+  
+  .text-apocalypse-danger {
+    color: #ff6bcb;
+  }
+}
+
+/* Keyframes para animaciones */
+@keyframes pulse-red {
+  0%, 100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.7;
+  }
+}
+
+@keyframes pulse-blue {
+  0%, 100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.7;
+  }
+}
+
+@keyframes shake {
+  0%, 100% {
+    transform: translateX(0);
+  }
+  25% {
+    transform: translateX(-5px);
+  }
+  75% {
+    transform: translateX(5px);
+  }
+}
+
+@keyframes fade-in {
+  0% {
+    opacity: 0;
+  }
+  100% {
+    opacity: 1;
+  }
+}
+
+@keyframes slide-up {
+  0% {
+    transform: translateY(20px);
+    opacity: 0;
+  }
+  100% {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+
+/* Estilos para móvil */
+@media (max-width: 768px) {
+  .mobile-text-sm {
+    font-size: 0.875rem;
+  }
+  
+  .mobile-text-lg {
+    font-size: 1.125rem;
+  }
+  
+  .mobile-text-xl {
+    font-size: 1.25rem;
+  }
+  
+  .mobile-text-2xl {
+    font-size: 1.5rem;
+  }
+  
+  .mobile-text-4xl {
+    font-size: 2.25rem;
+  }
+  
+  .mobile-text-6xl {
+    font-size: 3.75rem;
+  }
+  
+  /* Mejoras para touch */
+  .touch-manipulation {
+    touch-action: manipulation;
+  }
+  
+  /* Prevenir zoom en inputs */
+  input, textarea, select {
+    font-size: 16px !important;
+  }
+  
+  /* Mejorar scroll en móvil */
+  .overflow-x-auto {
+    -webkit-overflow-scrolling: touch;
+  }
+}
+
+/* Estilos para PWA */
+@media (display-mode: standalone) {
+  body {
+    -webkit-user-select: none;
+    -webkit-touch-callout: none;
+  }
+}
+
+/* Estilos para modo oscuro */
+@media (prefers-color-scheme: dark) {
+  body {
+    background: #0b132b;
+  }
+}
+
+/* Estilos para modo claro */
+@media (prefers-color-scheme: light) {
+  body {
+    background: #1e3a8a;
+  }
+}
