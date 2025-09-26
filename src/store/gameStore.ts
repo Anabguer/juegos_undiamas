@@ -1010,6 +1010,11 @@ export const useGameStore = create<GameState & {
           // Generar nuevas cartas después de usar el bate
           get().generateCards();
         }
+        
+        // Si el mensaje actual es sobre el zombie, cerrarlo también
+        if (state.currentMessage.includes('Viene un zombieee')) {
+          get().hideMessage();
+        }
       }
     } else if (item.type === ItemType.FOOD) {
       // Comer comida - restaurar hambre directamente (sin dificultad)

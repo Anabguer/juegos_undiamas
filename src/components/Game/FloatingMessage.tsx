@@ -65,6 +65,9 @@ export const FloatingMessage: React.FC<FloatingMessageProps> = ({
         } else if (message === BEAR_MESSAGES.TUTORIAL_BLOCKED_HOUSE) {
           // Si es el mensaje de casas bloqueadas, NO cerrar automáticamente
           return; // No ejecutar onClose()
+        } else if (message === BEAR_MESSAGES.ZOMBIE_APPEAR) {
+          // Si es el mensaje del zombie, NO cerrar automáticamente hasta usar el bate
+          return; // No ejecutar onClose()
         } else if (message === BEAR_MESSAGES.TUTORIAL_FINAL) {
           // Si es el mensaje final del tutorial, completar el tutorial
           const { set, resumeGame } = require('@/store/gameStore').useGameStore.getState();
@@ -94,9 +97,9 @@ export const FloatingMessage: React.FC<FloatingMessageProps> = ({
   React.useEffect(() => {
     if (isVisible) {
       const handleClick = () => {
-        // No cerrar si es el mensaje de tutorial de comida, casas, casas bloqueadas, bate o bufanda
+        // No cerrar si es el mensaje de tutorial de comida, casas, casas bloqueadas, bate, bufanda o zombie
         const { BEAR_MESSAGES } = require('@/config/characters');
-        if (message === BEAR_MESSAGES.TUTORIAL_FOOD || message === BEAR_MESSAGES.TIP_HOUSES || message === BEAR_MESSAGES.TUTORIAL_BLOCKED_HOUSE || message === BEAR_MESSAGES.TUTORIAL_BAT || message === BEAR_MESSAGES.TUTORIAL_COLD_NIGHT) {
+        if (message === BEAR_MESSAGES.TUTORIAL_FOOD || message === BEAR_MESSAGES.TIP_HOUSES || message === BEAR_MESSAGES.TUTORIAL_BLOCKED_HOUSE || message === BEAR_MESSAGES.TUTORIAL_BAT || message === BEAR_MESSAGES.TUTORIAL_COLD_NIGHT || message === BEAR_MESSAGES.ZOMBIE_APPEAR) {
           return;
         }
         handleClose();
