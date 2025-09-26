@@ -35,7 +35,7 @@ export interface GameState {
   showTutorial: boolean;
   tutorialMessage: string;
   skipTutorial: boolean;
-  tutorialPhase: 'welcome' | 'food' | 'houses' | 'blocked_house_message' | 'blocked_house_modal' | 'zombie_warning' | 'bat_gift' | 'zombie_kill' | 'completed' | null;
+  tutorialPhase: 'welcome' | 'food' | 'houses' | 'blocked_house_message' | 'blocked_house_modal' | 'zombie_warning' | 'bat_gift' | 'zombie_kill' | 'cold_night' | 'final' | 'completed' | null;
   gameEnding?: GameEnding;
   
   // Inventario

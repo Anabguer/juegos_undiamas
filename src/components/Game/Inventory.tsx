@@ -17,10 +17,14 @@ export const Inventory: React.FC = () => {
   ];
 
   const handleItemUse = (itemName: string) => {
+    console.log('INVENTORY: Intentando usar item:', itemName);
     // Buscar el item en el inventario real
     const item = inventory.find(i => i.name === itemName);
     if (item) {
+      console.log('INVENTORY: Item encontrado, usando:', item);
       useItem(item.id);
+    } else {
+      console.log('INVENTORY: Item no encontrado en inventario');
     }
   };
 
@@ -108,11 +112,17 @@ export const Inventory: React.FC = () => {
               `}
               style={{ minHeight: '48px', minWidth: '48px' }}
               onClick={() => {
-                // No permitir usar items durante el tutorial (excepto la manzana del tutorial)
-                const { showTutorial } = useGameStore.getState();
-                if (showTutorial && item.name !== 'Manzana') {
+                // No permitir usar items durante el tutorial (excepto la manzana del tutorial, el bate cuando aparece zombie, y la bufanda cuando hace frío)
+                const { showTutorial, tutorialPhase } = useGameStore.getState();
+                console.log('INVENTORY: Click en item:', item.name, 'showTutorial:', showTutorial, 'tutorialPhase:', tutorialPhase);
+                
+                if (showTutorial && item.name !== 'Manzana' && 
+                    !(item.name === 'Bate' && tutorialPhase === 'zombie_warning') &&
+                    !(item.name === 'Bufanda' && tutorialPhase === 'cold_night')) {
+                  console.log('INVENTORY: Item bloqueado durante tutorial');
                   return;
                 }
+                console.log('INVENTORY: Item permitido, procediendo a usar');
                 handleItemUse(item.name);
               }}
               title={`${item.name} (${quantity}) - ${getItemDescription({ type: item.type })}`}

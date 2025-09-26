@@ -9,22 +9,12 @@ export const CardDeck: React.FC = () => {
   const [timeLeft, setTimeLeft] = useState(10);
   const [hasShownTimeMessage, setHasShownTimeMessage] = useState(false);
   
-  console.log('CardDeck renderizado con currentCards:', currentCards.length, currentCards);
 
   // Timer para las cartas
   useEffect(() => {
-    console.log('Timer useEffect:', { 
-      currentCards: currentCards.length, 
-      isPaused, 
-      showTutorial,
-      timeLeft 
-    });
-    
     if (currentCards.length > 0 && !isPaused && !showTutorial) {
-      console.log('Iniciando timer');
       const timer = setInterval(() => {
         setTimeLeft(prev => {
-          console.log('Timer tick:', prev);
           if (prev <= 1) {
             // Tiempo agotado - penalización
             updateHealth(-10);
@@ -42,44 +32,28 @@ export const CardDeck: React.FC = () => {
       }, 1000);
 
       return () => {
-        console.log('Limpiando timer');
         clearInterval(timer);
       };
     }
-  }, [currentCards.length, isPaused, showTutorial, hasShownTimeMessage]);
+  }, [currentCards.length, isPaused, showTutorial, hasShownTimeMessage, updateHealth]);
 
-  // Generar cartas cuando no hay ninguna
+  // Generar cartas cuando no hay ninguna y resetear timer
   useEffect(() => {
     if (currentCards.length === 0) {
       generateCards();
-      setTimeLeft(10);
-      setHasShownTimeMessage(false); // Resetear el mensaje para nuevas cartas
     }
-  }, [currentCards.length]);
-
-  // Resetear timer cuando se generan nuevas cartas
-  useEffect(() => {
-    if (currentCards.length > 0) {
-      setTimeLeft(10);
-      setHasShownTimeMessage(false);
-    }
-  }, [currentCards.length]);
+    setTimeLeft(10);
+    setHasShownTimeMessage(false);
+  }, [currentCards.length, generateCards]);
 
   const handleCardSelect = (cardId: string) => {
-    console.log('handleCardSelect llamado con cardId:', cardId);
-    console.log('currentCards disponibles:', currentCards.map(c => ({ id: c.id, name: c.name, effect: c.effect })));
-    
     const card = currentCards.find(c => c.id === cardId);
     if (!card) {
-      console.log('No se encontró la carta con id:', cardId);
       return;
     }
-    
-    console.log('Carta seleccionada:', card);
 
     // Manejar casas bloqueadas
     if (card.effect.type === 'blocked_house' || card.isBlockedHouse) {
-      console.log('Casa bloqueada detectada, abriendo modal:', card.name, card.effect.type, card.isBlockedHouse);
       openBlockedHouseModal(cardId);
       return;
     }
@@ -200,12 +174,11 @@ export const CardDeck: React.FC = () => {
                 minWidth: '44px' 
               }}
               onClick={() => {
-                // Permitir clicks en casas durante el tutorial de casas y casas bloqueadas
+                // Bloquear TODAS las interacciones durante el tutorial inicial
                 const { showTutorial, currentMessage } = useGameStore.getState();
                 if (showTutorial && !currentMessage.includes('Entra en las casas') && !currentMessage.includes('bloqueada')) {
                   return;
                 }
-                console.log('Click en carta:', card.id, card.name);
                 handleCardSelect(card.id);
               }}
             >

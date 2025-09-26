@@ -36,13 +36,18 @@ const BlockedHouseModal: React.FC<BlockedHouseModalProps> = ({
   };
 
   const handleClick = () => {
-    // Mostrar mensaje de Peluso en el mensaje flotante
-    const message = getClickMessage(clicks);
+    // Verificar si estamos en tutorial - si es así, no mostrar mensajes del modal
     const { useGameStore } = require('@/store/gameStore');
-    useGameStore.setState({ 
-      currentMessage: message, 
-      showMessage: true 
-    });
+    const { showTutorial } = useGameStore.getState();
+    
+    if (!showTutorial) {
+      // Mostrar mensaje de Peluso en el mensaje flotante solo si NO es tutorial
+      const message = getClickMessage(clicks);
+      useGameStore.setState({ 
+        currentMessage: message, 
+        showMessage: true 
+      });
+    }
     
     // Luego hacer clic en la puerta
     clickBlockedHouse(cardId);

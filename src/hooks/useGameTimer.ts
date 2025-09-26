@@ -43,14 +43,5 @@ export const useGameTimer = () => {
         clearInterval(balanceIntervalRef.current);
       }
     };
-  }, [isPlaying, isPaused, advanceTime, updateHunger, updateThirst, updateHealth, hunger, thirst, health]);
-
-  // Cleanup al desmontar
-  useEffect(() => {
-    return () => {
-      if (intervalRef.current) {
-        clearInterval(intervalRef.current);
-      }
-    };
-  }, []);
+  }, [isPlaying, isPaused, advanceTime, updateHunger, updateThirst, updateHealth]);
 };

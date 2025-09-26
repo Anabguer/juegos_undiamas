@@ -16,6 +16,7 @@ export const FloatingMessage: React.FC<FloatingMessageProps> = ({
   onClose,
   isGuide = false
 }) => {
+  console.log('FLOATING_MESSAGE: Renderizando mensaje:', message, 'isVisible:', isVisible, 'isGuide:', isGuide);
   // Pausar el juego si es un mensaje de guía
   React.useEffect(() => {
     if (isVisible && isGuide) {
@@ -29,6 +30,7 @@ export const FloatingMessage: React.FC<FloatingMessageProps> = ({
 
   // Función para cerrar y reanudar el juego
   const handleClose = React.useCallback(() => {
+    console.log('FLOATING_MESSAGE: handleClose llamado, isGuide:', isGuide, 'message:', message);
     if (isGuide) {
       const { resumeGame, skipTutorial, showBearGuide } = require('@/store/gameStore').useGameStore.getState();
       const { BEAR_MESSAGES } = require('@/config/characters');
@@ -48,7 +50,7 @@ export const FloatingMessage: React.FC<FloatingMessageProps> = ({
               id: 'tutorial_apple',
               name: 'Manzana',
               type: 'food',
-              image: '/images/manzana.png',
+              image: '/images/apple.png',
               quantity: 1
             });
             // Efecto visual de manzana volando desde Peluso
@@ -71,7 +73,11 @@ export const FloatingMessage: React.FC<FloatingMessageProps> = ({
         } else if (message === BEAR_MESSAGES.TUTORIAL_FINAL) {
           // Si es el mensaje final del tutorial, completar el tutorial
           const { set, resumeGame } = require('@/store/gameStore').useGameStore.getState();
-          set({ showTutorial: false });
+          set({ 
+            showTutorial: false,
+            tutorialPhase: 'completed',
+            isPaused: false
+          });
           resumeGame();
           return; // No ejecutar onClose()
         } else {
@@ -99,7 +105,7 @@ export const FloatingMessage: React.FC<FloatingMessageProps> = ({
       const handleClick = () => {
         // No cerrar si es el mensaje de tutorial de comida, casas, casas bloqueadas, bate, bufanda o zombie
         const { BEAR_MESSAGES } = require('@/config/characters');
-        if (message === BEAR_MESSAGES.TUTORIAL_FOOD || message === BEAR_MESSAGES.TIP_HOUSES || message === BEAR_MESSAGES.TUTORIAL_BLOCKED_HOUSE || message === BEAR_MESSAGES.TUTORIAL_BAT || message === BEAR_MESSAGES.TUTORIAL_COLD_NIGHT || message === BEAR_MESSAGES.ZOMBIE_APPEAR) {
+        if (message === BEAR_MESSAGES.TUTORIAL_FOOD || message === BEAR_MESSAGES.TIP_HOUSES || message === BEAR_MESSAGES.TUTORIAL_BLOCKED_HOUSE || message === BEAR_MESSAGES.TUTORIAL_BAT || message === BEAR_MESSAGES.TUTORIAL_COLD_NIGHT || message === BEAR_MESSAGES.TUTORIAL_COLD_NIGHT_FINAL || message === BEAR_MESSAGES.ZOMBIE_APPEAR) {
           return;
         }
         handleClose();

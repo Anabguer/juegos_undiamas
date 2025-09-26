@@ -28,7 +28,7 @@ export const BEAR_MESSAGES = {
   CLOTHING_FOUND: "Bufanda… para que no te congele el cuello cuando te ataquen los zombis.",
   
   // Situaciones especiales
-  ZOMBIE_APPEAR: "¡Cuidadooo! ¡Viene un zombieee! Dale al bate en tu inventario o fue un placer conocerte.",
+  ZOMBIE_APPEAR: "¡Cuidadooo! ¡Viene un zombieee! Toma un bate, dale con él desde tu inventario o fue un placer conocerte.",
   HUNGER_WARNING: "Cucho, estás más vacío que mi relleno de algodón. Dale a la comida del inventario YA.",
   THIRST_WARNING: "Bebe agua, colega. Y no, la Coca-Cola no cuenta. Toca el agua en tu inventario, hay un apocalipsis pero hay que ser sano.",
   COLD_WARNING: "Tiritas más que yo en la lavadora. Ponte la bufanda del inventario o acabarás tieso.",
@@ -47,6 +47,8 @@ export const BEAR_MESSAGES = {
   TUTORIAL_FOOD: "Toma, comida. Esta invito yo... Ahora toca la manzana en tu inventario para comer. ¡No te mueras de hambre!",
   TUTORIAL_BLOCKED_HOUSE: "¡No me lo puedo creer! Con tu suerte, Cucho, esta casa está bloqueada y vienen zombis. ¡Dale muchas veces, hay que entrar rápido!",
   TUTORIAL_BAT: "A ver, ¿le vas a dar o no? Toma, te regalo un bate. Dale duro a ese amiguito verde.",
+  TUTORIAL_COLD_NIGHT_FINAL: "¿En serio? ¿Ahora tienes frío? Qué sorpresa… En fin, si quieres dejar de parecer un helado humano, toma, dale a la bufanda del inventario. Venga, ponla, que me está dando cosa verte temblar.",
+  TUTORIAL_FINAL: "Bueno… yo me voy a echar una siestecita, porque me has matado del aburrimiento. Suerte en este mundo apocalíptico… créeme, la vas a necesitar...",
   
   // Frases random graciosas
   FUNNY_QUOTES: [

@@ -38,6 +38,7 @@ const initialState: GameState = {
   tutorialStep: 0,
   tutorialActive: false,
   tutorialDone: false,
+  tutorialPhase: null,
   
   // Modal de casa bloqueada
   showBlockedHouseModal: false,
@@ -501,7 +502,6 @@ export const useGameStore = create<GameState & {
   
   // Generar cartas
   generateCards: () => {
-    console.log('generateCards llamado, generando', gameConfig.cardsPerTurn, 'cartas');
     const cards: Card[] = [];
     
     // TODAS las cartas son casas normales, pero algunas están "marcadas" para ser bloqueadas
@@ -523,9 +523,8 @@ export const useGameStore = create<GameState & {
         hiddenItemType = CardType.JUNK;
       }
       
-      // Determinar si esta casa será bloqueada (50% probabilidad para testing)
-      isBlockedHouse = Math.random() < 0.5;
-      console.log(`Casa ${i}: isBlockedHouse = ${isBlockedHouse}`);
+      // Determinar si esta casa será bloqueada (20% probabilidad balanceada)
+      isBlockedHouse = Math.random() < 0.2;
       
       // Siempre usar casa normal, pero marcar si será bloqueada
       const typeData = cardData[CardType.HOUSE];
@@ -549,13 +548,6 @@ export const useGameStore = create<GameState & {
         currentClicks: isBlockedHouse ? 0 : undefined
       };
       
-      console.log('Carta generada:', {
-        id: card.id,
-        name: card.name,
-        effect: card.effect,
-        houseImage: card.houseImage,
-        isBlockedHouse: card.isBlockedHouse
-      });
       
       // Configurar propiedades de la casa
       card.houseImage = randomCard.houseImage;
@@ -571,8 +563,6 @@ export const useGameStore = create<GameState & {
       cards.push(card);
     }
     
-    const blockedHouses = cards.filter(c => c.isBlockedHouse).length;
-    console.log('generateCards completado, cartas generadas:', cards.length, `(casas bloqueadas: ${blockedHouses})`);
     set({ currentCards: cards });
   },
   
@@ -581,16 +571,9 @@ export const useGameStore = create<GameState & {
     const state = get();
     const card = state.currentCards.find(c => c.id === cardId);
     
-    console.log('openBlockedHouseModal llamado con cardId:', cardId);
-    console.log('Carta encontrada:', card);
-    console.log('isBlockedHouse:', card?.isBlockedHouse);
-    
     if (!card || !card.isBlockedHouse) {
-      console.log('Modal no se abre: carta no encontrada o no es bloqueada');
       return;
     }
-    
-    console.log('Abriendo modal de casa bloqueada');
     // Pausar juego mientras está la puerta
     set({
       showBlockedHouseModal: true,
@@ -601,7 +584,6 @@ export const useGameStore = create<GameState & {
     
     // Si es tutorial, marcar la fase
     if (state.showTutorial && state.tutorialPhase === 'blocked_house_message') {
-      console.log('Tutorial: abriendo modal de puerta bloqueada');
       set({ tutorialPhase: 'blocked_house_modal' });
     }
   },
@@ -621,12 +603,7 @@ export const useGameStore = create<GameState & {
     const state = get();
     const card = state.currentCards.find(c => c.id === cardId);
     
-    console.log('clickBlockedHouse llamado con cardId:', cardId);
-    console.log('Carta encontrada:', card);
-    console.log('isBlockedHouse:', card?.isBlockedHouse);
-    
     if (!card || !card.isBlockedHouse) {
-      console.log('clickBlockedHouse: carta no encontrada o no es bloqueada');
       return;
     }
     
@@ -649,21 +626,11 @@ export const useGameStore = create<GameState & {
       
       // Si es el tutorial de casa bloqueada, manejar el flujo paso a paso
       if (state.showTutorial && state.tutorialPhase === 'blocked_house_modal') {
-        console.log('Tutorial: puerta desbloqueada, mostrando item');
+        console.log('TUTORIAL: Casa desbloqueada, cambiando a zombie_warning');
         set({ tutorialPhase: 'zombie_warning' });
         get().hideMessage();
         
-        // Añadir bate al inventario para el tutorial
-        get().addToInventory({
-          id: `bate_tutorial_${Date.now()}`,
-          type: ItemType.WEAPON,
-          name: 'Bate',
-          emoji: '🏏',
-          image: '/images/bat.png',
-          quantity: 1,
-          description: 'Bate para defenderse de los zombis'
-        });
-        
+        // NO añadir bate aquí - se añadirá cuando aparezca el zombie
         // NO reanudar el juego aquí - se reanudará cuando se use el bate
       } else {
         // Si no es tutorial, reanudar completamente
@@ -689,8 +656,22 @@ export const useGameStore = create<GameState & {
       };
       set({ zombies: [...state.zombies, zombie] });
 
-      // Mostrar mensaje de Peluso sobre el zombie
+      // Dar bate automáticamente cuando aparece el zombie
+      console.log('TUTORIAL: Dando bate automáticamente al aparecer zombie');
+      get().addToInventory({
+        id: 'tutorial_bat',
+        name: 'Bate',
+        type: 'weapon',
+        image: '/images/bat.png',
+        quantity: 1
+      });
+
+      // Efecto visual: bate volando del oso al inventario
+      get().triggerFlyingItem('Bate');
+
+      // Mostrar mensaje de Peluso sobre el zombie (pausar el juego)
       const { BEAR_MESSAGES } = require('@/config/characters');
+      console.log('TUTORIAL: Mostrando mensaje de zombie:', BEAR_MESSAGES.ZOMBIE_APPEAR);
       get().showBearGuide(BEAR_MESSAGES.ZOMBIE_APPEAR);
 
       // Guardar el item para mostrarlo DESPUÉS de usar el bate
@@ -833,6 +814,9 @@ export const useGameStore = create<GameState & {
       if (state.showTutorial && state.currentMessage.includes('Entra en las casas')) {
         get().hideMessage();
         
+        // Cambiar fase del tutorial
+        set({ tutorialPhase: 'blocked_house_message' });
+        
         // Convertir la casa actual en una casa bloqueada PRIMERO
         const updatedCards = state.currentCards.map(c => 
           c.id === cardId 
@@ -851,7 +835,6 @@ export const useGameStore = create<GameState & {
         
         // Mostrar tutorial de casa bloqueada INMEDIATAMENTE
         const { BEAR_MESSAGES } = require('@/config/characters');
-        console.log('Mostrando mensaje de casa bloqueada:', BEAR_MESSAGES.TUTORIAL_BLOCKED_HOUSE);
         get().showBearGuide(BEAR_MESSAGES.TUTORIAL_BLOCKED_HOUSE);
         
         return; // No continuar con la lógica normal de casa
@@ -959,9 +942,12 @@ export const useGameStore = create<GameState & {
         }
       });
       
-      // Mensaje de Peluso cuando matas un zombi
-      const msg = "¡Bien! Un zombi menos. La población mundial te lo agradece... si es que queda alguien.";
-      get().showBearGuide(msg);
+      // Mensaje de Peluso cuando matas un zombi (solo si NO es tutorial)
+      const currentState = get();
+      if (!currentState.showTutorial) {
+        const msg = "¡Bien! Un zombi menos. La población mundial te lo agradece... si es que queda alguien.";
+        get().showBearGuide(msg);
+      }
     }
   },
   
@@ -992,29 +978,65 @@ export const useGameStore = create<GameState & {
     
     if (!item || item.quantity <= 0) return;
     
-    // Activar efecto de vuelo
-    get().triggerFlyingItem(item.name);
-    
     // Aplicar efecto del item
     if (item.type === ItemType.WEAPON) {
       // Usar bate para matar zombi
       const zombie = state.zombies[0]; // Zombi más cercano
       if (zombie) {
+        // Efecto visual: bate volando del inventario al zombie
+        get().triggerFlyingItem('Bate');
+        
+        // Efecto visual: zombie siendo eliminado (sacado fuera de la ventana)
+        get().triggerShake();
+        
+        // Matar al zombie
         get().killZombie(zombie.id);
         
-        // Si estaba en tutorial de bate, cerrar el mensaje y reanudar
-        if (state.showTutorial && state.currentMessage.includes('te regalo un bate')) {
+        // Si está en tutorial, manejar la secuencia completa
+        if (state.showTutorial && state.tutorialPhase === 'zombie_warning') {
+          console.log('TUTORIAL: Usando bate, iniciando secuencia de noche');
           get().hideMessage();
-          // Generar nuevas cartas después de usar el bate
-          get().generateCards();
-        }
-        
-        // Si el mensaje actual es sobre el zombie, cerrarlo también
-        if (state.currentMessage.includes('Viene un zombieee')) {
-          get().hideMessage();
+          
+          // Cambiar a noche para activar el frío
+          set({ 
+            hour: 22, // 22:00 (noche)
+            isNight: true,
+            tutorialPhase: 'cold_night'
+          });
+          
+          // Aplicar frío al personaje
+          console.log('TUTORIAL: Aplicando frío al personaje');
+          get().setCold(true);
+          
+          // Dar bufanda al inventario
+          console.log('TUTORIAL: Añadiendo bufanda al inventario');
+          get().addToInventory({
+            id: 'tutorial_scarf',
+            name: 'Bufanda',
+            type: ItemType.CLOTHING,
+            emoji: '🧣',
+            image: '/images/scarf.png',
+            quantity: 1,
+            description: 'Bufanda para protegerse del frío'
+          });
+          
+          // Efecto visual: bufanda volando del oso al inventario
+          get().triggerFlyingItem('Bufanda', 'from_bear');
+          
+          // Mostrar mensaje de Peluso sobre el frío
+          setTimeout(() => {
+            const { BEAR_MESSAGES } = require('@/config/characters');
+            console.log('TUTORIAL: Mostrando mensaje de frío:', BEAR_MESSAGES.TUTORIAL_COLD_NIGHT_FINAL);
+            get().showBearGuide(BEAR_MESSAGES.TUTORIAL_COLD_NIGHT_FINAL);
+          }, 1000);
         }
       }
-    } else if (item.type === ItemType.FOOD) {
+    } else {
+      // Activar efecto de vuelo para otros items (comida, bebida, medicina, ropa)
+      get().triggerFlyingItem(item.name);
+    }
+    
+    if (item.type === ItemType.FOOD) {
       // Comer comida - restaurar hambre directamente (sin dificultad)
       const state = get();
       const newHunger = Math.min(100, state.hunger + 30);
@@ -1050,11 +1072,17 @@ export const useGameStore = create<GameState & {
       }
       
       // Si es el tutorial de bufanda y usa la bufanda, continuar con mensaje final
-      if (item.name === 'Bufanda' && state.showTutorial && state.currentMessage.includes('bufanda del inventario')) {
+      if (item.name === 'Bufanda' && state.showTutorial && state.tutorialPhase === 'cold_night') {
+        console.log('TUTORIAL: Usando bufanda, iniciando mensaje final');
         get().hideMessage();
+        
+        // Cambiar fase del tutorial
+        set({ tutorialPhase: 'final' });
+        
         // Continuar con el mensaje final del tutorial
         setTimeout(() => {
           const { BEAR_MESSAGES } = require('@/config/characters');
+          console.log('TUTORIAL: Mostrando mensaje final:', BEAR_MESSAGES.TUTORIAL_FINAL);
           get().showBearGuide(BEAR_MESSAGES.TUTORIAL_FINAL);
         }, 500);
       }
@@ -1064,14 +1092,15 @@ export const useGameStore = create<GameState & {
     
     // Lógica antigua del tutorial eliminada - ahora se maneja en tutorialStore
     
-    // Reducir cantidad
-    item.quantity -= 1;
-    if (item.quantity <= 0) {
-      state.inventory = state.inventory.filter(i => i.id !== itemId);
-    }
+    // Reducir cantidad usando set() para mantener consistencia
+    const updatedInventory = state.inventory.map(i => 
+      i.id === itemId 
+        ? { ...i, quantity: i.quantity - 1 }
+        : i
+    ).filter(i => i.quantity > 0);
     
     set({ 
-      inventory: [...state.inventory],
+      inventory: updatedInventory,
       stats: {
         ...state.stats,
         itemsUsed: state.stats.itemsUsed + 1
@@ -1231,3 +1260,5 @@ export const useGameStore = create<GameState & {
     set(initialState);
   }
 }));
+
+
