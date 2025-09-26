@@ -849,12 +849,10 @@ export const useGameStore = create<GameState & {
         );
         set({ currentCards: updatedCards });
         
-        // Mostrar tutorial de casa bloqueada DESPUÉS
-        setTimeout(() => {
-          const { BEAR_MESSAGES } = require('@/config/characters');
-          console.log('Mostrando mensaje de casa bloqueada:', BEAR_MESSAGES.TUTORIAL_BLOCKED_HOUSE);
-          get().showBearGuide(BEAR_MESSAGES.TUTORIAL_BLOCKED_HOUSE);
-        }, 500);
+        // Mostrar tutorial de casa bloqueada INMEDIATAMENTE
+        const { BEAR_MESSAGES } = require('@/config/characters');
+        console.log('Mostrando mensaje de casa bloqueada:', BEAR_MESSAGES.TUTORIAL_BLOCKED_HOUSE);
+        get().showBearGuide(BEAR_MESSAGES.TUTORIAL_BLOCKED_HOUSE);
         
         return; // No continuar con la lógica normal de casa
       }
