@@ -4,13 +4,13 @@ import React from 'react';
 import { useGameStore } from '@/store/gameStore';
 
 export const StatusBars: React.FC = () => {
-  const { hunger, thirst, health, isInfected, isCold } = useGameStore();
+  const { hunger, thirst, health, isInfected, isCold, isShaking } = useGameStore();
 
   const getBarColor = (value: number, type: string) => {
     if (value > 70) return 'bg-green-500';
-    if (value > 40) return 'bg-yellow-500';
-    if (value > 20) return 'bg-orange-500';
-    return 'bg-red-500';
+    if (value > 40) return 'bg-orange-500';
+    if (value > 20) return 'bg-red-500';
+    return 'bg-red-600';
   };
 
   const getBarWidth = (value: number) => {
@@ -35,11 +35,11 @@ export const StatusBars: React.FC = () => {
       <div className="flex flex-row gap-1 sm:gap-4">
         {/* Barra de Hambre */}
         <div className="flex items-center space-x-1 sm:space-x-2 flex-1">
-          <img 
-            src={getStatusIcon('hunger', hunger)} 
-            alt="Hambre" 
-            className="w-4 h-4 sm:w-6 sm:h-6"
-          />
+        <img 
+          src={getStatusIcon('hunger', hunger)} 
+          alt="Hambre" 
+          className="w-8 h-8 sm:w-10 sm:h-10"
+        />
           <div className="flex-1">
             <div className="flex justify-between text-xs text-white mb-1">
               <span className="hidden sm:block">Hambre</span>
@@ -56,11 +56,11 @@ export const StatusBars: React.FC = () => {
 
         {/* Barra de Sed */}
         <div className="flex items-center space-x-1 sm:space-x-2 flex-1">
-          <img 
-            src={getStatusIcon('thirst', thirst)} 
-            alt="Sed" 
-            className="w-4 h-4 sm:w-6 sm:h-6"
-          />
+        <img 
+          src={getStatusIcon('thirst', thirst)} 
+          alt="Sed" 
+          className="w-6 h-6 sm:w-8 sm:h-8"
+        />
           <div className="flex-1">
             <div className="flex justify-between text-xs text-white mb-1">
               <span className="hidden sm:block">Sed</span>
@@ -76,22 +76,28 @@ export const StatusBars: React.FC = () => {
         </div>
 
         {/* Barra de Salud */}
-        <div className="flex items-center space-x-1 sm:space-x-2 flex-1">
-          <img 
-            src={getStatusIcon('health', health)} 
-            alt="Salud" 
-            className="w-4 h-4 sm:w-6 sm:h-6"
-          />
+        <div className="flex items-center space-x-1 sm:space-x-2 flex-1 relative">
+        <img 
+          src={getStatusIcon('health', health)} 
+          alt="Salud" 
+          className="w-8 h-8 sm:w-10 sm:h-10"
+        />
           <div className="flex-1">
             <div className="flex justify-between text-xs text-white mb-1">
               <span className="hidden sm:block">Salud</span>
               <span>{health}%</span>
             </div>
-            <div className="w-full bg-gray-700 rounded-full h-2">
+            <div className="w-full bg-gray-700 rounded-full h-2 relative">
               <div
                 className={`h-2 rounded-full transition-all duration-500 ${getBarColor(health, 'health')}`}
                 style={{ width: getBarWidth(health) }}
               />
+              {/* Gota roja cayendo cuando pierdes salud */}
+              {isShaking && (
+                <div className="absolute top-0 left-1/2 transform -translate-x-1/2 animate-bounce">
+                  <div className="w-2 h-3 bg-red-600 rounded-full opacity-80"></div>
+                </div>
+              )}
             </div>
           </div>
         </div>

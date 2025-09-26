@@ -5,7 +5,7 @@ import { useGameStore } from '@/store/gameStore';
 import { motion } from 'framer-motion';
 
 export const Character: React.FC = () => {
-  const { hunger, thirst, health, isInfected, isCold } = useGameStore();
+  const { hunger, thirst, health, isInfected, isCold, characterEffect } = useGameStore();
 
   const getCharacterState = () => {
     if (isInfected) return 'infected';
@@ -16,6 +16,12 @@ export const Character: React.FC = () => {
   };
 
   const getCharacterImage = () => {
+    // Si hay un efecto temporal, usar char_thirsty para CUALQUIER acción
+    if (characterEffect === 'drinking' || characterEffect === 'eating' || characterEffect === 'healing') {
+      return '/images/char_thirsty.png';
+    }
+    
+    // Si no hay efecto temporal, usar el estado actual (NO normal)
     const state = getCharacterState();
     switch (state) {
       case 'infected':
@@ -32,6 +38,48 @@ export const Character: React.FC = () => {
   };
 
   const getCharacterAnimation = () => {
+    // Si hay un efecto temporal, usar animación especial
+    if (characterEffect === 'drinking') {
+      return {
+        animate: { 
+          scale: [1, 1.1, 1],
+          rotate: [0, 5, -5, 0]
+        },
+        transition: { 
+          duration: 1, 
+          repeat: 1,
+          ease: "easeInOut"
+        }
+      };
+    }
+    if (characterEffect === 'eating') {
+      return {
+        animate: { 
+          scale: [1, 1.05, 1],
+          y: [0, -5, 0]
+        },
+        transition: { 
+          duration: 1, 
+          repeat: 1,
+          ease: "easeInOut"
+        }
+      };
+    }
+    if (characterEffect === 'healing') {
+      return {
+        animate: { 
+          scale: [1, 1.2, 1],
+          rotate: [0, 10, -10, 0]
+        },
+        transition: { 
+          duration: 1.5, 
+          repeat: 1,
+          ease: "easeInOut"
+        }
+      };
+    }
+    
+    // Si no hay efecto temporal, usar animación normal
     const state = getCharacterState();
     switch (state) {
       case 'infected':
@@ -95,6 +143,18 @@ export const Character: React.FC = () => {
   };
 
   const getCharacterGlow = () => {
+    // Si hay un efecto temporal, usar brillo especial
+    if (characterEffect === 'drinking') {
+      return 'shadow-lg shadow-blue-400/70 animate-pulse';
+    }
+    if (characterEffect === 'eating') {
+      return 'shadow-lg shadow-orange-400/70 animate-pulse';
+    }
+    if (characterEffect === 'healing') {
+      return 'shadow-lg shadow-green-400/70 animate-pulse';
+    }
+    
+    // Si no hay efecto temporal, usar brillo normal
     const state = getCharacterState();
     switch (state) {
       case 'infected':
@@ -119,7 +179,7 @@ export const Character: React.FC = () => {
         <img 
           src={getCharacterImage()} 
           alt="Personaje"
-          className="w-24 h-24 sm:w-32 sm:h-32 md:w-40 md:h-40 object-contain"
+          className="w-48 h-48 sm:w-56 sm:h-56 md:w-64 md:h-64 object-contain"
         />
       </motion.div>
     </div>

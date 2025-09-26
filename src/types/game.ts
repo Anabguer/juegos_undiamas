@@ -7,17 +7,36 @@ export interface GameState {
   health: number;      // 0-100
   isInfected: boolean;
   isCold: boolean;
+  isShaking: boolean;
+  flyingItem: string | null;
+  flyingItemType: 'from_inventory' | 'from_bear' | null;
+  characterEffect: 'drinking' | 'eating' | 'healing' | null;
   
   // Tiempo del juego
   day: number;
   hour: number;
   minute: number;
+  isNight: boolean;
   
   // Estado del juego
   isPlaying: boolean;
   isPaused: boolean;
   gameOver: boolean;
   showItemSelection: boolean;
+  showManual: boolean;
+  showInventorySummary: boolean;
+  showHelp: boolean;
+  showItemFoundModal: boolean;
+  foundItemName: string;
+  foundItemImage: string;
+  showInfoModal: boolean;
+  infoTitle: string;
+  infoMessage: string;
+  showTutorial: boolean;
+  tutorialMessage: string;
+  skipTutorial: boolean;
+  tutorialPhase: 'welcome' | 'food' | 'houses' | 'blocked_house_message' | 'blocked_house_modal' | 'zombie_warning' | 'bat_gift' | 'zombie_kill' | 'completed' | null;
+  gameEnding?: GameEnding;
   
   // Inventario
   inventory: InventoryItem[];
@@ -44,6 +63,8 @@ export interface InventoryItem {
   image?: string;
   quantity: number;
   description: string;
+  uses?: number; // Para items con usos limitados
+  maxUses?: number; // Máximo de usos
 }
 
 export interface Card {
@@ -55,6 +76,14 @@ export interface Card {
   description: string;
   effect: CardEffect;
   rarity: CardRarity;
+  // Para casas
+  houseImage?: string;
+  isBlocked?: boolean;
+  clicksToUnlock?: number;
+  currentClicks?: number;
+  isRevealed?: boolean;
+  hiddenItemType?: CardType; // Item oculto dentro de la casa
+  isBlockedHouse?: boolean; // Si esta casa será bloqueada al hacer clic
 }
 
 export interface Zombie {
@@ -74,6 +103,14 @@ export interface GameStats {
   totalPlayTime: number;
 }
 
+export interface GameEnding {
+  type: GameEndingType;
+  title: string;
+  message: string;
+  image: string;
+  isGood: boolean;
+}
+
 // Enums
 export enum ItemType {
   FOOD = 'food',
@@ -91,7 +128,9 @@ export enum CardType {
   CLOTHING = 'clothing',
   WEAPON = 'weapon',
   JUNK = 'junk',
-  ZOMBIE = 'zombie'
+  ZOMBIE = 'zombie',
+  HOUSE = 'house',
+  BLOCKED_HOUSE = 'blocked_house'
 }
 
 export enum ZombieType {
@@ -99,6 +138,14 @@ export enum ZombieType {
   NORMAL = 'normal',
   FAST = 'fast',
   RESISTANT = 'resistant'
+}
+
+export enum GameEndingType {
+  HUNGER = 'hunger',
+  THIRST = 'thirst',
+  COLD = 'cold',
+  ZOMBIE = 'zombie',
+  ABSURD = 'absurd'
 }
 
 export enum CardRarity {
@@ -109,7 +156,7 @@ export enum CardRarity {
 }
 
 export interface CardEffect {
-  type: 'hunger' | 'thirst' | 'health' | 'infection' | 'cold' | 'zombie' | 'junk';
+  type: 'hunger' | 'thirst' | 'health' | 'infection' | 'cold' | 'zombie' | 'junk' | 'house' | 'blocked_house';
   value: number;
   duration?: number; // en horas
 }

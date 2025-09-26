@@ -12,7 +12,7 @@
     margin: 0;
     padding: 0;
     overflow-x: hidden;
-    background: #0b132b;
+    background: #000000;
     color: white;
   }
   
@@ -201,13 +201,13 @@
 /* Estilos para modo oscuro */
 @media (prefers-color-scheme: dark) {
   body {
-    background: #0b132b;
+    background: #000000;
   }
 }
 
 /* Estilos para modo claro */
 @media (prefers-color-scheme: light) {
   body {
-    background: #1e3a8a;
+    background: #000000;
   }
 }

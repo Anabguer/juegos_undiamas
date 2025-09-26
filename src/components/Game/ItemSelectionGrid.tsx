@@ -18,9 +18,10 @@ interface GridItem {
 
 export const ItemSelectionGrid: React.FC = () => {
   const { startGame, addToInventory } = useGameStore();
-  const [timeLeft, setTimeLeft] = useState(13);
+  const [timeLeft, setTimeLeft] = useState(8);
   const [gridItems, setGridItems] = useState<GridItem[]>([]);
   const [selectedItems, setSelectedItems] = useState<string[]>([]);
+  const [usefulItemsCount, setUsefulItemsCount] = useState(0);
   const [isAnimating, setIsAnimating] = useState(false);
 
   // Generar items del grid
@@ -34,20 +35,21 @@ export const ItemSelectionGrid: React.FC = () => {
       { type: 'weapon', name: 'Bate', emoji: '🏏', image: '/images/bat.png' },
       { type: 'clothing', name: 'Bufanda', emoji: '🧣', image: '/images/scarf.png' },
       
-      // BASURA GRACIOSA (solo las que existen)
+      // BASURA GRACIOSA (SIN COMIDA/BEBIDA)
       { type: 'junk', name: 'Pato de goma', emoji: '🦆', image: '/images/duck.png' },
       { type: 'junk', name: 'CD rayado', emoji: '💿', image: '/images/cd.png' },
       { type: 'junk', name: 'Osito de peluche', emoji: '🧸', image: '/images/plush.png' },
       { type: 'junk', name: 'Pelota desinflada', emoji: '⚽', image: '/images/ball.png' },
       { type: 'junk', name: 'Calcetín', emoji: '🧦', image: '/images/calcetin.png' },
       { type: 'junk', name: 'Teléfono', emoji: '📱', image: '/images/telefono.png' },
-      { type: 'junk', name: 'Zapato', emoji: '👟', image: '/images/zapato.png' },
+      { type: 'junk', name: 'Zapato', emoji: '👞', image: '/images/zapato.png' },
       { type: 'junk', name: 'Libro', emoji: '📖', image: '/images/libro.png' },
       { type: 'junk', name: 'Llaves', emoji: '🗝️', image: '/images/llaves.png' },
+      { type: 'junk', name: 'Sombrero', emoji: '🎩', image: '/images/hat.png' },
     ];
 
-    // Crear muchas repeticiones de cada item
-    for (let i = 0; i < 50; i++) {
+    // Crear repeticiones de cada item (caos controlado) - MUCHOS MÁS ITEMS
+    for (let i = 0; i < 200; i++) {
       const itemType = itemTypes[Math.floor(Math.random() * itemTypes.length)];
       items.push({
         id: `${itemType.type}-${i}`,
@@ -57,7 +59,7 @@ export const ItemSelectionGrid: React.FC = () => {
         image: itemType.image,
         x: Math.random() * 100,
         y: Math.random() * 100,
-        scale: 0.8 + Math.random() * 0.4,
+        scale: 0.7 + Math.random() * 0.6, // Más variación de tamaño
         rotation: Math.random() * 360,
       });
     }
@@ -78,16 +80,59 @@ export const ItemSelectionGrid: React.FC = () => {
     }
   }, [timeLeft, startGame]);
 
-  // Animación continua del grid
+  // Animación continua del grid y regeneración de items
   useEffect(() => {
     const interval = setInterval(() => {
-      setGridItems(prev => prev.map(item => ({
-        ...item,
-        x: Math.random() * 100,
-        y: Math.random() * 100,
-        rotation: Math.random() * 360,
-        scale: 0.8 + Math.random() * 0.4,
-      })));
+      setGridItems(prev => {
+        // Si quedan pocos items, regenerar más
+        if (prev.length < 50) {
+          const newItems: GridItem[] = [];
+          const itemTypes = [
+            { type: 'food', name: 'Manzana', emoji: '🍏', image: '/images/apple.png' },
+            { type: 'drink', name: 'Agua', emoji: '💧', image: '/images/water.png' },
+            { type: 'medicine', name: 'Pastilla', emoji: '💊', image: '/images/pill.png' },
+            { type: 'weapon', name: 'Bate', emoji: '🏏', image: '/images/bat.png' },
+            { type: 'clothing', name: 'Bufanda', emoji: '🧣', image: '/images/scarf.png' },
+            { type: 'junk', name: 'Pato de goma', emoji: '🦆', image: '/images/duck.png' },
+            { type: 'junk', name: 'CD rayado', emoji: '💿', image: '/images/cd.png' },
+            { type: 'junk', name: 'Osito de peluche', emoji: '🧸', image: '/images/plush.png' },
+            { type: 'junk', name: 'Pelota desinflada', emoji: '⚽', image: '/images/ball.png' },
+            { type: 'junk', name: 'Calcetín', emoji: '🧦', image: '/images/calcetin.png' },
+            { type: 'junk', name: 'Teléfono', emoji: '📱', image: '/images/telefono.png' },
+            { type: 'junk', name: 'Zapato', emoji: '👞', image: '/images/zapato.png' },
+            { type: 'junk', name: 'Libro', emoji: '📖', image: '/images/libro.png' },
+            { type: 'junk', name: 'Llaves', emoji: '🗝️', image: '/images/llaves.png' },
+            { type: 'junk', name: 'Sombrero', emoji: '🎩', image: '/images/hat.png' },
+          ];
+          
+          // Añadir 100 items nuevos
+          for (let i = 0; i < 100; i++) {
+            const itemType = itemTypes[Math.floor(Math.random() * itemTypes.length)];
+            newItems.push({
+              id: `${itemType.type}-${Date.now()}-${i}`,
+              type: itemType.type,
+              name: itemType.name,
+              emoji: itemType.emoji,
+              image: itemType.image,
+              x: Math.random() * 100,
+              y: Math.random() * 100,
+              scale: 0.7 + Math.random() * 0.6,
+              rotation: Math.random() * 360,
+            });
+          }
+          
+          return [...prev, ...newItems];
+        }
+        
+        // Si hay suficientes items, solo moverlos
+        return prev.map(item => ({
+          ...item,
+          x: Math.random() * 100,
+          y: Math.random() * 100,
+          rotation: Math.random() * 360,
+          scale: 0.8 + Math.random() * 0.4,
+        }));
+      });
     }, 2000);
 
     return () => clearInterval(interval);
@@ -96,11 +141,11 @@ export const ItemSelectionGrid: React.FC = () => {
   const getItemMessage = (item: GridItem) => {
     // Mensajes específicos para items útiles
     const usefulMessages = {
-      'Manzana': "¡Manzana! Perfecto para no morir de hambre.",
-      'Agua': "¡Agua! El líquido de la vida.",
-      'Pastilla': "¡Pastilla! Esto podría salvarte la vida.",
-      'Bate': "¡Bate! Para defenderse de los zombis.",
-      'Bufanda': "¡Bufanda! Para protegerse del frío nocturno."
+      'Manzana': "¡Comida! Al menos quita el hambre… mejor que masticar aire.",
+      'Agua': "Agua… vale, la sed no se mata sola.",
+      'Pastilla': "Medicina… cura el contagio, no la estupidez.",
+      'Bate': "Un bate… para darle duro a esos zombis.",
+      'Bufanda': "Bufanda… porque morirse de frío no es tan épico."
     };
 
     // Si es un item útil, usar mensaje específico
@@ -108,44 +153,27 @@ export const ItemSelectionGrid: React.FC = () => {
       return usefulMessages[item.name as keyof typeof usefulMessages];
     }
 
-    // Mensajes graciosos para basura
-    const junkMessages = [
-      "¿Un zapato? ¿Para qué quieres un zapato?",
-      "¡Un pato de goma! Muy útil... para nada.",
-      "¿Un calcetín perdido? ¿En serio?",
-      "¡Un CD rayado! ¿Quién tiene un lector de esto?",
-      "¿Un cepillo de dientes usado? ¡Qué asco!",
-      "¡Llaves oxidadas! Para abrir... ¿qué?",
-      "¿Un libro mojado? ¡Perfecto para leer bajo la lluvia!",
-      "¡Un teléfono roto! Para llamar a... nadie.",
-      "¿Un osito de peluche? ¡Yo no juego con esas cosas!",
-      "¡Una pelota desinflada! Para jugar... ¿al fútbol?",
-      "¿Un calcetín? ¡Esto está agujereado!",
-      "¿Un teléfono? ¡Esto no tiene señal!",
-      "¿Un zapato? ¡Esto está roto!",
-      "¿Un libro? ¡Esto está mojado!",
-      "¿Unas llaves? ¡Esto no abre nada!",
-      "¿Pollo? ¡Esto está podrido!",
-      "¿Jugo? ¡Esto está agrio!",
-      "¿Refresco? ¡Esto está caliente!",
-      "¿Patatas fritas? ¡Están blandas!",
-      "¿Antídoto? ¡Esto está caducado!",
-      "¿Sombrero? ¡Ahora no estoy para postureo!",
-      "¿Pan duro? ¡Esto está como una piedra!",
-      "¿Queso mohoso? ¡Esto está verde!",
-      "¿Pizza fría? ¡Esto está como cartón!",
-      "¿Cerveza caliente? ¡Esto está asqueroso!",
-      "¿Café frío? ¡Esto está amargo!",
-      "¿Vendaje? ¡Esto está sucio!",
-      "¿Jeringuilla? ¡Esto está oxidado!",
-      "¿Cuchillo? ¡Esto está oxidado!",
-      "¿Pistola? ¡Esto está roto!",
-      "¿Hacha? ¡Esto está desafilado!",
-      "¿Chaqueta? ¡Esto está roto!",
-      "¿Guantes? ¡Esto está agujereado!"
-    ];
+    // Mensajes específicos para cada item basura
+    const junkMessages = {
+      'Pato de goma': "Un pato de goma… ¿le doy de comer o qué?",
+      'CD rayado': "Un CD… espero que esté bueno con un poco de perejil.",
+      'Osito de peluche': "Un osito… siempre quise un guardaespaldas blandito.",
+      'Pelota desinflada': "Una pelota… sin aire, como yo los lunes.",
+      'Calcetín': "¿Solo uno? Siempre pierdo el otro, incluso en el apocalipsis.",
+      'Teléfono': "Un teléfono roto… igual aún tiene cobertura zombi.",
+      'Zapato': "Un zapato… me falta el pie que combine.",
+      'Libro': "Un libro mojado… edición de lujo apocalíptica.",
+      'Llaves': "Llaves oxidadas… seguro que abren dramas.",
+      'Sombrero': "Un sombrero… perfecto para la pasarela del fin del mundo."
+    };
     
-    return junkMessages[Math.floor(Math.random() * junkMessages.length)];
+    // Si tiene mensaje específico, usarlo
+    if (junkMessages[item.name as keyof typeof junkMessages]) {
+      return junkMessages[item.name as keyof typeof junkMessages];
+    }
+    
+    // Fallback genérico
+    return "¿Esto? ¡No sé ni para qué sirve!";
   };
 
   const handleItemClick = (itemId: string) => {
@@ -162,7 +190,7 @@ export const ItemSelectionGrid: React.FC = () => {
       // Mostrar mensaje gracioso
       useGameStore.setState({ currentMessage: message, showMessage: true });
       
-      // Solo añadir items útiles al inventario (solo los 5 tipos específicos)
+      // Añadir items útiles al inventario (solo los 5 tipos específicos)
       if (item.name === 'Manzana' || item.name === 'Agua' || item.name === 'Pastilla' || 
           item.name === 'Bate' || item.name === 'Bufanda') {
         addToInventory({
@@ -174,10 +202,24 @@ export const ItemSelectionGrid: React.FC = () => {
           quantity: 1,
           description: `Objeto seleccionado: ${item.name}`
         });
+        // Incrementar contador de items útiles
+        setUsefulItemsCount(prev => prev + 1);
+      } else {
+        // Añadir items basura al inventario con cantidad 0 (para mostrar en resumen)
+        addToInventory({
+          id: itemId,
+          name: item.name,
+          type: item.type,
+          emoji: item.emoji,
+          image: item.image,
+          quantity: 0, // Cantidad 0 para que no se puedan usar
+          description: `Item basura recogido - solo para colección`
+        });
       }
     }
 
-    setTimeout(() => setIsAnimating(false), 300);
+    // Tiempo más corto para respuesta más rápida
+    setTimeout(() => setIsAnimating(false), 150);
   };
 
   const getItemColor = (type: string) => {
@@ -204,13 +246,20 @@ export const ItemSelectionGrid: React.FC = () => {
       className="min-h-screen bg-cover bg-center bg-no-repeat flex flex-col items-center p-4"
       style={{ backgroundImage: 'url(/images/coger.png)' }}
     >
+      {/* Texto arriba del contador */}
+      <div className="text-center mt-12 sm:mt-16 mb-2">
+        <h1 className="text-2xl sm:text-3xl font-bold text-white" style={{ fontFamily: 'Comic Sans MS, cursive', textShadow: '2px 2px 0px #000' }}>
+          ¡COGE LO MÁS IMPORTANTE!
+        </h1>
+      </div>
+
       {/* Contador grande */}
       <motion.div
         key={timeLeft}
         initial={{ scale: 0, rotate: -180 }}
         animate={{ scale: 1, rotate: 0 }}
         transition={{ type: "spring", stiffness: 200, damping: 20 }}
-        className="text-6xl sm:text-7xl font-bold text-white mb-4 text-center mt-20 sm:mt-24"
+        className="text-7xl sm:text-8xl font-bold text-white mb-4 text-center"
         style={{ fontFamily: 'Comic Sans MS, cursive', textShadow: '3px 3px 0px #000' }}
       >
         {timeLeft}
@@ -222,7 +271,7 @@ export const ItemSelectionGrid: React.FC = () => {
           {gridItems.map((item) => (
             <motion.div
               key={item.id}
-              initial={{ opacity: 0, scale: 0 }}
+              initial={{ opacity: 0, scale: 0, y: -20 }}
               animate={{ 
                 opacity: selectedItems.includes(item.id) ? 0 : 1,
                 scale: selectedItems.includes(item.id) ? 0 : item.scale,
@@ -230,18 +279,28 @@ export const ItemSelectionGrid: React.FC = () => {
                 y: `${item.y}%`,
                 rotate: item.rotation
               }}
-              exit={{ opacity: 0, scale: 0 }}
+              exit={{ opacity: 0, scale: 0, y: 20 }}
               transition={{ 
-                duration: 0.3,
-                ease: "easeInOut"
+                duration: 0.4,
+                ease: "easeOut",
+                delay: Math.random() * 0.2 // Pequeño delay aleatorio para efecto cascada
               }}
-              whileHover={{ scale: item.scale * 1.2 }}
-              whileTap={{ scale: item.scale * 0.8 }}
+              whileHover={{ 
+                scale: 1.15, 
+                rotate: item.rotation + 15,
+                y: -5,
+                transition: { duration: 0.2 }
+              }}
+              whileTap={{ 
+                scale: 0.9,
+                rotate: item.rotation - 5,
+                transition: { duration: 0.1 }
+              }}
               className={`
-                absolute w-20 h-20 sm:w-24 sm:h-24
+                absolute w-24 h-24 sm:w-28 sm:h-28
                 bg-transparent
                 cursor-pointer flex items-center justify-center
-                transition-all duration-200
+                transition-all duration-300 ease-out
                 ${selectedItems.includes(item.id) ? 'pointer-events-none' : ''}
               `}
               style={{
@@ -255,32 +314,23 @@ export const ItemSelectionGrid: React.FC = () => {
                 <img 
                   src={item.image} 
                   alt={item.name}
-                  className="w-14 h-14 sm:w-16 sm:h-16 object-contain"
+                  className="w-18 h-18 sm:w-20 sm:h-20 object-contain"
                 />
               ) : (
-                <div className="text-4xl sm:text-5xl">{item.emoji}</div>
+                <div className="text-5xl sm:text-6xl">{item.emoji}</div>
               )}
             </motion.div>
           ))}
         </AnimatePresence>
       </div>
 
-      {/* Textos debajo de la caja */}
+      {/* Texto debajo de la caja */}
       <div className="mt-12 text-center">
-        <h1 className="text-xl sm:text-2xl font-bold text-white mb-2" style={{ fontFamily: 'Comic Sans MS, cursive', textShadow: '2px 2px 0px #000' }}>
-          ¡COGE LO MÁS IMPORTANTE!
-        </h1>
         <p className="text-sm sm:text-lg text-gray-300" style={{ fontFamily: 'Comic Sans MS, cursive' }}>
           Toca los objetos que quieras llevar contigo
         </p>
       </div>
 
-      {/* Contador de objetos seleccionados */}
-      <div className="mt-4 text-center">
-        <p className="text-lg sm:text-xl text-white font-bold" style={{ fontFamily: 'Comic Sans MS, cursive' }}>
-          Objetos seleccionados: {selectedItems.length}
-        </p>
-      </div>
     </div>
   );
 };

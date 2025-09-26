@@ -65,11 +65,28 @@ export const Inventory: React.FC = () => {
     }
   };
 
+  // Separar items útiles de basura
+  const usefulItems = fixedItems.filter(item => 
+    ['Manzana', 'Agua', 'Pastilla', 'Bate', 'Bufanda'].includes(item.name)
+  );
+  
+  const junkItems = inventory.filter(item => 
+    !['Manzana', 'Agua', 'Pastilla', 'Bate', 'Bufanda'].includes(item.name)
+  );
+
   return (
-    <div className="mb-4 sm:mb-8">
-      <h3 className="text-white text-center text-lg sm:text-xl font-bold mb-3 sm:mb-4">🎒 Inventario</h3>
-      
-      <div className="flex flex-wrap justify-center gap-2 sm:gap-3 w-full bg-black bg-opacity-20 rounded-lg p-3 sm:p-4">
+    <div className="mb-2">
+      <div 
+        className="flex justify-center w-full rounded-lg p-1 sm:p-2"
+        style={{ 
+          backgroundImage: 'url(/images/estanteriainventario.png)',
+          backgroundSize: 'cover',
+          backgroundPosition: 'center',
+          backgroundRepeat: 'no-repeat',
+          minHeight: '80px',
+          width: '100%'
+        }}
+      >
         {fixedItems.map((item, index) => {
           const quantity = getItemQuantity(item.name);
           return (
@@ -81,41 +98,38 @@ export const Inventory: React.FC = () => {
               whileHover={{ scale: 1.05, y: -2 }}
               whileTap={{ scale: 0.95 }}
               className={`
-                w-16 h-16 sm:w-20 sm:h-20 rounded-lg border-2 cursor-pointer
-                ${getItemColor(item.type)}
+                w-24 h-24 sm:w-28 sm:h-28 cursor-pointer
+                bg-transparent
                 shadow-lg hover:shadow-xl transition-all duration-200
-                flex flex-col items-center justify-center p-1 sm:p-2
+                flex flex-col items-center justify-center p-1
                 text-white relative touch-manipulation
                 ${quantity === 0 ? 'opacity-50' : ''}
+                mx-4
               `}
-              style={{ minHeight: '44px', minWidth: '44px' }}
-              onClick={() => handleItemUse(item.name)}
+              style={{ minHeight: '48px', minWidth: '48px' }}
+              onClick={() => {
+                // No permitir usar items durante el tutorial (excepto la manzana del tutorial)
+                const { showTutorial } = useGameStore.getState();
+                if (showTutorial && item.name !== 'Manzana') {
+                  return;
+                }
+                handleItemUse(item.name);
+              }}
               title={`${item.name} (${quantity}) - ${getItemDescription({ type: item.type })}`}
             >
               <img 
                 src={item.image} 
                 alt={item.name}
-                className="w-6 h-6 sm:w-8 sm:h-8 mb-0.5 sm:mb-1 object-contain"
+                className="w-12 h-12 sm:w-14 sm:h-14 object-contain"
               />
-              <div className="text-xs font-bold text-center hidden sm:block">{item.name}</div>
               
-              {/* Contador de cantidad */}
-              <div className="absolute -top-1 -right-1 sm:-top-2 sm:-right-2 bg-red-500 text-white text-xs rounded-full w-5 h-5 sm:w-6 sm:h-6 flex items-center justify-center font-bold">
+              {/* Contador de cantidad - Estilo retro */}
+              <div className="absolute bottom-0 right-0 bg-yellow-600 text-black text-sm sm:text-base rounded-md w-6 h-6 sm:w-7 sm:h-7 flex items-center justify-center font-black border-2 border-yellow-800 shadow-lg" style={{ fontFamily: 'Comic Sans MS, cursive' }}>
                 {quantity}
               </div>
             </motion.div>
           );
         })}
-      </div>
-      
-      {/* Información del inventario */}
-      <div className="mt-2 sm:mt-4 text-center text-white">
-        <p className="text-xs sm:text-sm">
-          Items fijos - Toca para usar
-        </p>
-        <p className="text-xs text-gray-400 mt-1">
-          Los números muestran cuántos tienes
-        </p>
       </div>
     </div>
   );

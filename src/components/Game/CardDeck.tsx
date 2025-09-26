@@ -5,44 +5,84 @@ import { useGameStore } from '@/store/gameStore';
 import { motion, AnimatePresence } from 'framer-motion';
 
 export const CardDeck: React.FC = () => {
-  const { currentCards, selectCard, generateCards, showMessage, updateHealth, inventory } = useGameStore();
-  const [timeLeft, setTimeLeft] = useState(5);
-  const [isSelecting, setIsSelecting] = useState(false);
+  const { currentCards, selectCard, openBlockedHouseModal, generateCards, updateHealth, inventory, isPaused, showTutorial } = useGameStore();
+  const [timeLeft, setTimeLeft] = useState(10);
+  const [hasShownTimeMessage, setHasShownTimeMessage] = useState(false);
+  
+  console.log('CardDeck renderizado con currentCards:', currentCards.length, currentCards);
 
   // Timer para las cartas
   useEffect(() => {
-    if (currentCards.length > 0 && !isSelecting) {
+    console.log('Timer useEffect:', { 
+      currentCards: currentCards.length, 
+      isPaused, 
+      showTutorial,
+      timeLeft 
+    });
+    
+    if (currentCards.length > 0 && !isPaused && !showTutorial) {
+      console.log('Iniciando timer');
       const timer = setInterval(() => {
         setTimeLeft(prev => {
+          console.log('Timer tick:', prev);
           if (prev <= 1) {
             // Tiempo agotado - penalización
             updateHealth(-10);
-            // Usar setTimeout para evitar problemas con setState
-            setTimeout(() => {
-              useGameStore.setState({ currentMessage: "¡Tiempo agotado! Pierdes salud por no elegir.", showMessage: true });
-            }, 0);
+            // Solo mostrar mensaje una vez
+            if (!hasShownTimeMessage) {
+              setTimeout(() => {
+                useGameStore.setState({ currentMessage: "¡Tiempo agotado! Pierdes salud por no elegir.", showMessage: true });
+                setHasShownTimeMessage(true);
+              }, 0);
+            }
             return 5;
           }
           return prev - 1;
         });
       }, 1000);
 
-      return () => clearInterval(timer);
+      return () => {
+        console.log('Limpiando timer');
+        clearInterval(timer);
+      };
     }
-  }, [currentCards.length, isSelecting]);
+  }, [currentCards.length, isPaused, showTutorial, hasShownTimeMessage]);
 
   // Generar cartas cuando no hay ninguna
   useEffect(() => {
     if (currentCards.length === 0) {
       generateCards();
-      setTimeLeft(5);
-      setIsSelecting(false);
+      setTimeLeft(10);
+      setHasShownTimeMessage(false); // Resetear el mensaje para nuevas cartas
     }
-  }, [currentCards.length, generateCards]);
+  }, [currentCards.length]);
+
+  // Resetear timer cuando se generan nuevas cartas
+  useEffect(() => {
+    if (currentCards.length > 0) {
+      setTimeLeft(10);
+      setHasShownTimeMessage(false);
+    }
+  }, [currentCards.length]);
 
   const handleCardSelect = (cardId: string) => {
+    console.log('handleCardSelect llamado con cardId:', cardId);
+    console.log('currentCards disponibles:', currentCards.map(c => ({ id: c.id, name: c.name, effect: c.effect })));
+    
     const card = currentCards.find(c => c.id === cardId);
-    if (!card) return;
+    if (!card) {
+      console.log('No se encontró la carta con id:', cardId);
+      return;
+    }
+    
+    console.log('Carta seleccionada:', card);
+
+    // Manejar casas bloqueadas
+    if (card.effect.type === 'blocked_house' || card.isBlockedHouse) {
+      console.log('Casa bloqueada detectada, abriendo modal:', card.name, card.effect.type, card.isBlockedHouse);
+      openBlockedHouseModal(cardId);
+      return;
+    }
 
     // Verificar si tienes el item específico necesario para usar la carta
     const hasRequiredItem = inventory.some(item => {
@@ -58,6 +98,9 @@ export const CardDeck: React.FC = () => {
           return item.name === 'Bufanda';
         case 'zombie':
           return item.name === 'Bate';
+        case 'house':
+        case 'blocked_house':
+          return true; // Las casas no requieren items
         default:
           return true; // Para cartas de basura, siempre se puede usar
       }
@@ -74,13 +117,12 @@ export const CardDeck: React.FC = () => {
       };
       
       const message = messages[card.effect.type as keyof typeof messages] || "¡No tienes lo necesario para usar esto!";
-      showMessage(message);
+      useGameStore.setState({ currentMessage: message, showMessage: true });
       return;
     }
 
-    setIsSelecting(true);
     selectCard(cardId);
-    setTimeLeft(5);
+    setTimeLeft(10);
   };
 
   const getCardColor = (type: string) => {
@@ -119,15 +161,14 @@ export const CardDeck: React.FC = () => {
   return (
     <div className="mb-4 sm:mb-8">
       <div className="text-center text-white mb-2 sm:mb-4">
-        <h3 className="text-lg sm:text-xl font-bold">Cartas del Turno</h3>
-        {currentCards.length > 0 && (
-          <div className="flex items-center justify-center space-x-2 mt-1 sm:mt-2">
-            <span className="text-xs sm:text-sm">Tiempo restante:</span>
-            <div className={`text-sm sm:text-lg font-bold ${timeLeft <= 2 ? 'text-red-400 animate-pulse' : 'text-white'}`}>
-              {timeLeft}s
+        <div className="flex items-center justify-center space-x-3">
+          <h3 className="text-lg sm:text-xl font-bold">Elije</h3>
+          {currentCards.length > 0 && (
+            <div className={`text-lg sm:text-xl font-bold px-2 py-1 rounded-full bg-red-600 ${timeLeft <= 2 ? 'animate-pulse' : ''}`}>
+              {timeLeft}
             </div>
-          </div>
-        )}
+          )}
+        </div>
       </div>
 
       <div className="flex justify-center space-x-2 sm:space-x-4 overflow-x-auto pb-2">
@@ -147,7 +188,7 @@ export const CardDeck: React.FC = () => {
               whileHover={{ scale: 1.05, y: -5 }}
               whileTap={{ scale: 0.95 }}
               className={`
-                w-24 h-32 sm:w-32 sm:h-40 rounded-lg border-2 cursor-pointer
+                w-28 h-28 sm:w-36 sm:h-36 rounded-lg cursor-pointer
                 shadow-lg hover:shadow-xl transition-all duration-200
                 flex flex-col items-center justify-center p-2 sm:p-4
                 text-white touch-manipulation flex-shrink-0
@@ -158,32 +199,39 @@ export const CardDeck: React.FC = () => {
                 minHeight: '44px', 
                 minWidth: '44px' 
               }}
-              onClick={() => handleCardSelect(card.id)}
+              onClick={() => {
+                // Permitir clicks en casas durante el tutorial de casas y casas bloqueadas
+                const { showTutorial, currentMessage } = useGameStore.getState();
+                if (showTutorial && !currentMessage.includes('Entra en las casas') && !currentMessage.includes('bloqueada')) {
+                  return;
+                }
+                console.log('Click en carta:', card.id, card.name);
+                handleCardSelect(card.id);
+              }}
             >
-              {card.image ? (
+              {/* Mostrar casa estática (sin rotación) */}
+              {card.effect.type === 'house' && card.houseImage ? (
+                <img 
+                  src={card.houseImage} 
+                  alt={card.name}
+                  className="w-28 h-28 sm:w-32 sm:h-32 mb-1 sm:mb-2 object-contain"
+                />
+              ) : card.effect.type === 'blocked_house' || card.isBlockedHouse ? (
+                <img 
+                  src={card.houseImage} 
+                  alt={card.name}
+                  className="w-28 h-28 sm:w-32 sm:h-32 mb-1 sm:mb-2 object-contain"
+                />
+              ) : card.image ? (
                 <img 
                   src={card.image} 
                   alt={card.name}
-                  className="w-8 h-8 sm:w-12 sm:h-12 mb-1 sm:mb-2 object-contain"
+                  className="w-16 h-16 sm:w-20 sm:h-20 mb-1 sm:mb-2 object-contain"
                 />
               ) : (
-                <div className="text-2xl sm:text-4xl mb-1 sm:mb-2">{card.emoji}</div>
+                <div className="text-3xl sm:text-5xl mb-1 sm:mb-2">{card.emoji}</div>
               )}
-              <div className="text-xs sm:text-sm font-bold text-center mb-1">{card.name}</div>
-              <div className="text-xs text-center opacity-80 hidden sm:block">{card.description}</div>
               
-              {/* Efecto de la carta */}
-              {card.effect && (
-                <div className="text-xs text-center mt-1 sm:mt-2 opacity-70">
-                  {card.effect.type === 'hunger' && `+${card.effect.value} hambre`}
-                  {card.effect.type === 'thirst' && `+${card.effect.value} sed`}
-                  {card.effect.type === 'health' && `+${card.effect.value} salud`}
-                  {card.effect.type === 'infection' && 'Cura infección'}
-                  {card.effect.type === 'cold' && 'Protege del frío'}
-                  {card.effect.type === 'zombie' && 'Añade bate'}
-                  {card.effect.type === 'junk' && 'Objeto inútil'}
-                </div>
-              )}
             </motion.div>
           ))}
         </AnimatePresence>

@@ -19,11 +19,10 @@ export const GameMessage: React.FC<GameMessageProps> = ({ message }) => {
           stiffness: 300,
           damping: 30
         }}
-        className="fixed top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 z-50"
+        className="w-full"
       >
-        <div className="bg-black bg-opacity-90 text-white px-4 py-3 sm:px-6 sm:py-4 rounded-lg border-2 border-yellow-400 shadow-2xl max-w-xs sm:max-w-md mx-2 sm:mx-4">
+        <div className="bg-black bg-opacity-90 text-white px-3 py-2 sm:px-4 sm:py-3 rounded-lg border-2 border-yellow-400 shadow-2xl w-full mx-auto">
           <div className="text-center">
-            <div className="text-xl sm:text-2xl mb-1 sm:mb-2">💬</div>
             <p className="text-sm sm:text-lg font-semibold">{message}</p>
           </div>
         </div>

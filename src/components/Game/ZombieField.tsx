@@ -70,35 +70,26 @@ export const ZombieField: React.FC = () => {
                   <img 
                     src={getZombieImage(zombie.type)} 
                     alt="Zombi"
-                    className="w-8 h-8 sm:w-12 sm:h-12 object-contain"
+                    className="w-12 h-12 sm:w-16 sm:h-16 object-contain"
                   />
                 </motion.div>
               ) : (
                 <div className="text-gray-500 text-xs sm:text-sm">
-                  {index === 0 ? '👤' : index}
+                  {index === 0 ? (
+                    <img 
+                      src="/images/casillacucho.png" 
+                      alt="Cucho" 
+                      className="w-12 h-12 sm:w-16 sm:h-16 object-contain"
+                    />
+                  ) : ''}
                 </div>
               )}
               
-              {/* Indicador de posición */}
-              <div className="absolute bottom-0.5 right-0.5 text-xs text-gray-400">
-                {index}
-              </div>
             </div>
           );
         })}
       </div>
       
-      {/* Información de zombis */}
-      {zombies.length > 0 && (
-        <div className="mt-2 sm:mt-4 text-center text-white">
-          <p className="text-xs sm:text-sm">
-            {zombies.length} zombi{zombies.length !== 1 ? 's' : ''} en el campo
-          </p>
-          <p className="text-xs text-gray-400 mt-1">
-            Toca un zombi para usar un bate
-          </p>
-        </div>
-      )}
     </div>
   );
 };
