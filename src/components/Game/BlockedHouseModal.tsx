@@ -36,22 +36,23 @@ const BlockedHouseModal: React.FC<BlockedHouseModalProps> = ({
   };
 
   const handleClick = () => {
-    // Verificar si estamos en tutorial Y el tutorial no ha terminado
+    // Verificar si estamos en tutorial Y el tutorial no ha terminado Y no está desactivado
     const { useGameStore } = require('@/store/gameStore');
-    const { showTutorial, tutorialPhase } = useGameStore.getState();
+    const { showTutorial, tutorialPhase, skipTutorial } = useGameStore.getState();
     
-    if (showTutorial && tutorialPhase !== 'completed') {
+    if (showTutorial && tutorialPhase !== 'completed' && !skipTutorial) {
       // En tutorial activo, mostrar mensajes de Peluso usando showBearGuide
       const message = getClickMessage(clicks);
       useGameStore.getState().showBearGuide(message);
-    } else {
-      // Fuera del tutorial o tutorial completado, mostrar mensaje normal
+    } else if (!skipTutorial) {
+      // Fuera del tutorial pero tutorial NO desactivado, mostrar mensaje normal
       const message = getClickMessage(clicks);
       useGameStore.setState({ 
         currentMessage: message, 
         showMessage: true 
       });
     }
+    // Si skipTutorial está activado, no mostrar ningún mensaje del oso
     
     // Luego hacer clic en la puerta
     clickBlockedHouse(cardId);

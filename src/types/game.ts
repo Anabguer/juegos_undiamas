@@ -43,6 +43,7 @@ export interface GameState {
   
   // Zombis
   zombies: Zombie[];
+  lastZombieSpawnHour: number;
   
   // Cartas actuales
   currentCards: Card[];
@@ -50,6 +51,7 @@ export interface GameState {
   // Mensajes
   currentMessage: string;
   showMessage: boolean;
+  shownMessages: Set<string>; // Para evitar mensajes repetidos
   
   // Estadísticas
   stats: GameStats;

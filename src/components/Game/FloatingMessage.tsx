@@ -78,6 +78,8 @@ export const FloatingMessage: React.FC<FloatingMessageProps> = ({
             tutorialPhase: 'completed',
             isPaused: false
           });
+          // Marcar tutorial como completado en localStorage
+          useGameStore.getState().setTutorialCompleted();
           useGameStore.getState().resumeGame();
           return; // No ejecutar onClose()
         } else {
@@ -150,16 +152,20 @@ export const FloatingMessage: React.FC<FloatingMessageProps> = ({
             <div 
               className="flex-shrink-0 cursor-pointer hover:scale-110 transition-transform duration-200"
               onClick={() => {
-                // Solo mostrar mensaje gracioso si NO es un mensaje de tutorial
+                // Solo mostrar mensaje gracioso si NO es un mensaje de tutorial Y el tutorial no está desactivado
                 if (!isGuide) {
-                  const { BEAR_MESSAGES } = require('@/config/characters');
-                  const randomTouchMsg = BEAR_MESSAGES.TOUCH_OBJECTS[Math.floor(Math.random() * BEAR_MESSAGES.TOUCH_OBJECTS.length)];
-                  // Mostrar como mensaje normal (no tutorial)
                   const { useGameStore } = require('@/store/gameStore');
-                  useGameStore.getState().setState({ 
-                    currentMessage: randomTouchMsg, 
-                    showMessage: true 
-                  });
+                  const { skipTutorial } = useGameStore.getState();
+                  
+                  if (!skipTutorial) {
+                    const { BEAR_MESSAGES } = require('@/config/characters');
+                    const randomTouchMsg = BEAR_MESSAGES.TOUCH_OBJECTS[Math.floor(Math.random() * BEAR_MESSAGES.TOUCH_OBJECTS.length)];
+                    // Mostrar como mensaje normal (no tutorial)
+                    useGameStore.setState({ 
+                      currentMessage: randomTouchMsg, 
+                      showMessage: true 
+                    });
+                  }
                 }
               }}
             >

@@ -2,6 +2,23 @@ import { create } from 'zustand';
 import { GameState, Card, Zombie, InventoryItem, GameStats, CardType, ItemType, ZombieType, GameEndingType, CardEffect } from '@/types/game';
 import { BEAR_MESSAGES } from '@/config/characters';
 
+// Función para cargar preferencias guardadas
+const loadSavedPreferences = () => {
+  if (typeof window !== 'undefined') {
+    const savedSkipTutorial = localStorage.getItem('skipTutorial');
+    const savedTutorialCompleted = localStorage.getItem('tutorialCompleted');
+    
+    return {
+      skipTutorial: savedSkipTutorial === 'true',
+      tutorialCompleted: savedTutorialCompleted === 'true'
+    };
+  }
+  return {
+    skipTutorial: false,
+    tutorialCompleted: false
+  };
+};
+
 // Estado inicial del juego
 const initialState: GameState = {
   hunger: 100,
@@ -34,7 +51,7 @@ const initialState: GameState = {
   infoMessage: '',
   showTutorial: false,
   tutorialMessage: '',
-  skipTutorial: false,
+  skipTutorial: loadSavedPreferences().skipTutorial,
   tutorialStep: 0,
   tutorialActive: false,
   tutorialDone: false,
@@ -48,9 +65,11 @@ const initialState: GameState = {
   inventory: [],
   zombies: [],
   currentCards: [],
+  lastZombieSpawnHour: 0, // Para controlar cooldown entre spawns
   
   currentMessage: '',
   showMessage: false,
+  shownMessages: new Set<string>(), // Para evitar mensajes repetidos
   
   stats: {
     daysSurvived: 0,
@@ -66,8 +85,10 @@ const gameConfig = {
   timePerHour: 5, // 5 segundos reales = 1 hora del juego
   cardsPerTurn: 3,
   cardDisplayTime: 5, // 5 segundos para elegir
-  zombieSpawnRate: 0.2, // 20% de probabilidad por turno
-  difficultyMultiplier: 1.1 // +10% dificultad por día
+  zombieSpawnRate: 0.08, // 8% de probabilidad por hora (más suave)
+  maxZombiesAtOnce: 2, // Máximo 2 zombies a la vez
+  zombieSpawnCooldown: 4, // 4 horas de cooldown entre spawns
+  difficultyMultiplier: 1.15 // +15% dificultad por día
 };
 
 // Función para calcular la dificultad actual
@@ -205,6 +226,7 @@ export const useGameStore = create<GameState & {
   setShowTutorial: (show: boolean) => void;
   setTutorialMessage: (message: string) => void;
   setSkipTutorial: (skip: boolean) => void;
+  setTutorialCompleted: () => void;
   pauseGame: () => void;
   resumeGame: () => void;
   resumeGameOnly: () => void;
@@ -331,6 +353,20 @@ export const useGameStore = create<GameState & {
   
   setSkipTutorial: (skip: boolean) => {
     set({ skipTutorial: skip });
+    // Guardar la preferencia en localStorage
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('skipTutorial', skip.toString());
+    }
+  },
+  
+  // Marcar tutorial como completado
+  setTutorialCompleted: () => {
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('tutorialCompleted', 'true');
+      // Si completó el tutorial, marcar como desactivado por defecto
+      localStorage.setItem('skipTutorial', 'true');
+    }
+    set({ skipTutorial: true });
   },
   
   pauseGame: () => set({ isPaused: true }),
@@ -436,11 +472,39 @@ export const useGameStore = create<GameState & {
       get().generateCards();
     }
     
-    // Spawn de zombis con dificultad progresiva
+    // Spawn de zombis con lógica mejorada y progresiva
     const currentDifficulty = getCurrentDifficulty(newDay);
-    const adjustedSpawnRate = gameConfig.zombieSpawnRate * currentDifficulty;
-    if (Math.random() < adjustedSpawnRate) {
+    let adjustedSpawnRate = gameConfig.zombieSpawnRate * currentDifficulty;
+    let canSpawnByTime = false;
+    
+    // Lógica de spawn por días:
+    if (newDay === 1) {
+      // Día 1: Sin zombies
+      adjustedSpawnRate = 0;
+    } else if (newDay >= 2 && newDay <= 4) {
+      // Días 2-4: Solo zombies por la noche (21:00-05:00)
+      canSpawnByTime = (newHour >= 21 || newHour < 5);
+    } else if (newDay === 5) {
+      // Día 5: Zombies día y noche + mensaje del oso
+      canSpawnByTime = true;
+      // Mostrar mensaje del oso una sola vez
+      if (newHour === 8 && newMinute === 0 && !state.skipTutorial) { // Solo a las 8:00 del día 5
+        const msg = "Mira, los zombis son más listos que tú y ahora han aprendido a ir de día también... suerte.";
+        get().showBearGuide(msg);
+      }
+    } else {
+      // Día 6+: Zombies día y noche
+      canSpawnByTime = true;
+    }
+    
+    const hoursSinceLastSpawn = newHour - state.lastZombieSpawnHour;
+    const canSpawnByCooldown = hoursSinceLastSpawn >= gameConfig.zombieSpawnCooldown;
+    const hasSpaceForZombie = state.zombies.length < gameConfig.maxZombiesAtOnce;
+    
+    if (canSpawnByTime && canSpawnByCooldown && hasSpaceForZombie && Math.random() < adjustedSpawnRate) {
       get().spawnZombie();
+      // Actualizar la hora del último spawn
+      set({ lastZombieSpawnHour: newHour });
     }
     
     // Mover zombis
@@ -859,29 +923,50 @@ export const useGameStore = create<GameState & {
             get().setFoundItem(randomItem.name, (randomItem as any).image);
             get().setShowItemFoundModal(true);
             
-            // Mostrar mensaje gracioso (NO tutorial, solo mensaje normal)
+            // Mostrar mensaje gracioso solo si no se ha mostrado antes (NO tutorial, solo mensaje normal)
             let funnyMsg = '';
+            let messageKey = '';
             if (hiddenItemType === CardType.FOOD) {
               funnyMsg = BEAR_MESSAGES.FOOD_FOUND;
+              messageKey = 'food_found';
             } else if (hiddenItemType === CardType.DRINK) {
               funnyMsg = BEAR_MESSAGES.DRINK_FOUND;
+              messageKey = 'drink_found';
             } else if (hiddenItemType === CardType.MEDICINE) {
               funnyMsg = BEAR_MESSAGES.MEDICINE_FOUND;
+              messageKey = 'medicine_found';
             } else if (hiddenItemType === CardType.WEAPON) {
               funnyMsg = BEAR_MESSAGES.WEAPON_FOUND;
+              messageKey = 'weapon_found';
             } else if (hiddenItemType === CardType.CLOTHING) {
               funnyMsg = BEAR_MESSAGES.CLOTHING_FOUND;
+              messageKey = 'clothing_found';
             }
             
-            if (funnyMsg) {
-              // Mostrar como mensaje normal (NO tutorial, no pausa el juego)
-              set({ currentMessage: funnyMsg, showMessage: true });
+            if (funnyMsg && messageKey) {
+              const state = get();
+              // Solo mostrar si no se ha mostrado antes
+              if (!state.shownMessages.has(messageKey)) {
+                set({ 
+                  currentMessage: funnyMsg, 
+                  showMessage: true,
+                  shownMessages: new Set([...state.shownMessages, messageKey])
+                });
+              }
             }
       }
     } else if (card.effect.type === 'junk') {
-      // Mensaje irónico
-      const message = ironicMessages.junk[Math.floor(Math.random() * ironicMessages.junk.length)];
-      set({ currentMessage: message, showMessage: true });
+      // Mensaje irónico solo si no se ha mostrado antes
+      const state = get();
+      const junkMessageKey = 'junk_found';
+      if (!state.shownMessages.has(junkMessageKey)) {
+        const message = ironicMessages.junk[Math.floor(Math.random() * ironicMessages.junk.length)];
+        set({ 
+          currentMessage: message, 
+          showMessage: true,
+          shownMessages: new Set([...state.shownMessages, junkMessageKey])
+        });
+      }
     }
     
     // Limpiar cartas
@@ -891,11 +976,16 @@ export const useGameStore = create<GameState & {
   // Spawn de zombi
   spawnZombie: () => {
     const state = get();
+    const currentDifficulty = getCurrentDifficulty(state.day);
+    
+    // Zombies más lentos al principio, más rápidos con el tiempo
+    const baseSpeed = Math.max(0.5, Math.min(2, currentDifficulty * 0.8));
+    
     const zombie: Zombie = {
       id: `zombie_${Date.now()}`,
       type: ZombieType.NORMAL,
       position: 5, // Empieza en la última casilla (5)
-      speed: 1,
+      speed: baseSpeed,
       health: 1,
       isMoving: true
     };
@@ -906,7 +996,7 @@ export const useGameStore = create<GameState & {
   // Mover zombis
   moveZombies: () => {
     const state = get();
-    const updatedZombies = state.zombies.map(zombie => ({
+    let updatedZombies = state.zombies.map(zombie => ({
       ...zombie,
       position: Math.max(0, zombie.position - zombie.speed)
     }));
@@ -915,6 +1005,9 @@ export const useGameStore = create<GameState & {
     const zombiesAtPlayer = updatedZombies.filter(z => z.position === 0);
     if (zombiesAtPlayer.length > 0) {
       get().setInfected(true);
+      
+      // Eliminar los zombies que llegaron al jugador después de contagiar
+      updatedZombies = updatedZombies.filter(z => z.position !== 0);
       
       // Mensaje de Peluso cuando te contagias
       const msg = "¡Por los pelos! Si te contagia más vale que tengas una pastillita, sino empezará tu cuenta atrás...";
@@ -1229,6 +1322,12 @@ export const useGameStore = create<GameState & {
   
   // Mostrar frase random de Peluso (NO pausa el juego)
   showRandomBearQuote: () => {
+    const state = get();
+    // Si el tutorial está desactivado, no mostrar mensajes aleatorios
+    if (state.skipTutorial) {
+      return;
+    }
+    
     const { BEAR_MESSAGES } = require('@/config/characters');
     const randomQuote = BEAR_MESSAGES.FUNNY_QUOTES[Math.floor(Math.random() * BEAR_MESSAGES.FUNNY_QUOTES.length)];
     set({ 
@@ -1240,6 +1339,12 @@ export const useGameStore = create<GameState & {
   
   // Mostrar mensaje de guía de Peluso (SÍ pausa el juego)
   showBearGuide: (message: string) => {
+    const state = get();
+    // Si el tutorial está desactivado, no mostrar mensajes del oso
+    if (state.skipTutorial) {
+      return;
+    }
+    
     set({ 
       currentMessage: message,
       showMessage: true,
@@ -1254,9 +1359,12 @@ export const useGameStore = create<GameState & {
     const randomInterval = Math.random() * 30000 + 30000; // 30-60 segundos
     setTimeout(() => {
       const state = get();
-      if (state.isPlaying && !state.isPaused && !state.showTutorial) {
+      if (state.isPlaying && !state.isPaused && !state.showTutorial && !state.skipTutorial) {
         get().showRandomBearQuote();
         get().startRandomBearTimer(); // Programar la siguiente
+      } else if (state.isPlaying && !state.isPaused && !state.showTutorial && state.skipTutorial) {
+        // Si el tutorial está desactivado, no mostrar mensajes pero seguir programando
+        get().startRandomBearTimer();
       }
     }, randomInterval);
   },

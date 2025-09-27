@@ -7,10 +7,12 @@ import { motion } from 'framer-motion';
 export const ZombieField: React.FC = () => {
   const { zombies, killZombie } = useGameStore();
 
-  const getZombieImage = (type: string) => {
+  const getZombieImage = (zombie: any) => {
     const images = ['/images/zombie1.png', '/images/zombie2.png', '/images/zombie3.png', '/images/zombie4.png'];
-    const randomIndex = Math.floor(Math.random() * images.length);
-    return images[randomIndex];
+    // Usar el ID del zombie para obtener un índice consistente
+    const hash = zombie.id.split('_')[1] || '0'; // Obtener la parte numérica del ID
+    const index = parseInt(hash) % images.length;
+    return images[index];
   };
 
   const getZombieColor = (type: string) => {
@@ -68,7 +70,7 @@ export const ZombieField: React.FC = () => {
                   title={`Zombi ${zombie.type} - Haz clic para usar bate`}
                 >
                   <img 
-                    src={getZombieImage(zombie.type)} 
+                    src={getZombieImage(zombie)} 
                     alt="Zombi"
                     className="w-12 h-12 sm:w-16 sm:h-16 object-contain"
                   />
