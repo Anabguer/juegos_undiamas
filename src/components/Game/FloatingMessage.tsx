@@ -72,13 +72,13 @@ export const FloatingMessage: React.FC<FloatingMessageProps> = ({
           return; // No ejecutar onClose()
         } else if (message === BEAR_MESSAGES.TUTORIAL_FINAL) {
           // Si es el mensaje final del tutorial, completar el tutorial
-          const { set, resumeGame } = require('@/store/gameStore').useGameStore.getState();
-          set({ 
+          const { useGameStore } = require('@/store/gameStore');
+          useGameStore.setState({ 
             showTutorial: false,
             tutorialPhase: 'completed',
             isPaused: false
           });
-          resumeGame();
+          useGameStore.getState().resumeGame();
           return; // No ejecutar onClose()
         } else {
           resumeGame();
