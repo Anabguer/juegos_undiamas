@@ -3,6 +3,7 @@
 import React from 'react';
 import { useGameStore } from '@/store/gameStore';
 import { useGameTimer } from '@/hooks/useGameTimer';
+import { useAutoSave } from '@/hooks/useAutoSave';
 import { motion } from 'framer-motion';
 import { StatusBars } from './StatusBars';
 import { Character } from './Character';
@@ -102,6 +103,9 @@ export const GameBoard: React.FC = () => {
 
   // Iniciar el timer del juego
   useGameTimer();
+  
+  // Usar el hook de auto-guardado
+  useAutoSave();
 
   // Efectos visuales según el estado
   const getBackgroundClass = () => {

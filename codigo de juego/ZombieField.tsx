@@ -1,0 +1,97 @@
+'use client';
+
+import React from 'react';
+import { useGameStore } from '@/store/gameStore';
+import { motion } from 'framer-motion';
+
+export const ZombieField: React.FC = () => {
+  const { zombies, killZombie } = useGameStore();
+
+  const getZombieImage = (zombie: any) => {
+    const images = ['/images/zombie1.png', '/images/zombie2.png', '/images/zombie3.png', '/images/zombie4.png'];
+    // Usar el ID del zombie para obtener un índice consistente
+    const hash = zombie.id.split('_')[1] || '0'; // Obtener la parte numérica del ID
+    const index = parseInt(hash) % images.length;
+    return images[index];
+  };
+
+  const getZombieColor = (type: string) => {
+    switch (type) {
+      case 'slow':
+        return 'text-blue-400';
+      case 'normal':
+        return 'text-green-400';
+      case 'fast':
+        return 'text-red-400';
+      case 'resistant':
+        return 'text-purple-400';
+      default:
+        return 'text-green-400';
+    }
+  };
+
+  const handleZombieClick = (zombieId: string) => {
+    // Verificar si el jugador tiene un bate
+    const { inventory } = useGameStore.getState();
+    const bate = inventory.find(item => item.name === 'Bate' && item.quantity > 0);
+    
+    if (bate) {
+      killZombie(zombieId);
+      // Usar el bate
+      useGameStore.getState().useItem(bate.id);
+    } else {
+      useGameStore.getState().showMessage("Necesitas un bate para eliminar zombis!");
+    }
+  };
+
+  return (
+    <div className="mb-4 sm:mb-8">
+      <h3 className="text-white text-center text-lg sm:text-xl font-bold mb-2 sm:mb-4">Campo de Batalla</h3>
+      
+      {/* Campo de 6 casillas (0-5) */}
+      <div className="grid grid-cols-6 gap-1 sm:gap-2 max-w-2xl mx-auto">
+        {Array.from({ length: 6 }, (_, index) => {
+          const zombie = zombies.find(z => z.position === index);
+          
+          return (
+            <div
+              key={index}
+              className="h-16 sm:h-20 bg-gray-800 bg-opacity-50 rounded-lg border-2 border-gray-600 flex items-center justify-center relative touch-manipulation"
+              style={{ minHeight: '44px' }}
+            >
+              {zombie ? (
+                <motion.div
+                  className="cursor-pointer"
+                  initial={{ scale: 0 }}
+                  animate={{ scale: 1 }}
+                  whileHover={{ scale: 1.1 }}
+                  whileTap={{ scale: 0.9 }}
+                  onClick={() => handleZombieClick(zombie.id)}
+                  title={`Zombi ${zombie.type} - Haz clic para usar bate`}
+                >
+                  <img 
+                    src={getZombieImage(zombie)} 
+                    alt="Zombi"
+                    className="w-12 h-12 sm:w-16 sm:h-16 object-contain"
+                  />
+                </motion.div>
+              ) : (
+                <div className="text-gray-500 text-xs sm:text-sm">
+                  {index === 0 ? (
+                    <img 
+                      src="/images/casillacucho.png" 
+                      alt="Cucho" 
+                      className="w-12 h-12 sm:w-16 sm:h-16 object-contain"
+                    />
+                  ) : ''}
+                </div>
+              )}
+              
+            </div>
+          );
+        })}
+      </div>
+      
+    </div>
+  );
+};

@@ -19,8 +19,99 @@ const loadSavedPreferences = () => {
   };
 };
 
-// Estado inicial del juego
-const initialState: GameState = {
+// Función para cargar partida guardada
+const loadSavedGame = () => {
+  if (typeof window !== 'undefined') {
+    try {
+      const savedGame = localStorage.getItem('unDiaMas_savedGame');
+      if (savedGame) {
+        const gameData = JSON.parse(savedGame);
+        // Convertir Set de vuelta desde array
+        if (gameData.shownMessages) {
+          gameData.shownMessages = new Set(gameData.shownMessages);
+        }
+        return gameData;
+      }
+    } catch (error) {
+      console.error('Error loading saved game:', error);
+    }
+  }
+  return null;
+};
+
+// Función para guardar partida
+const saveGameToStorage = (gameState: any) => {
+  if (typeof window !== 'undefined') {
+    try {
+      // Crear copia del estado sin funciones y convertir Set a Array
+      const stateToSave = { ...gameState };
+      if (stateToSave.shownMessages) {
+        stateToSave.shownMessages = Array.from(stateToSave.shownMessages);
+      }
+      
+      // Remover propiedades temporales que no deben guardarse
+      delete stateToSave.flyingItem;
+      delete stateToSave.flyingItemType;
+      delete stateToSave.characterEffect;
+      delete stateToSave.currentCards;
+      delete stateToSave.zombies;
+      delete stateToSave.showItemFoundModal;
+      delete stateToSave.foundItemName;
+      delete stateToSave.foundItemImage;
+      delete stateToSave.showInfoModal;
+      delete stateToSave.infoTitle;
+      delete stateToSave.infoMessage;
+      delete stateToSave.showBlockedHouseModal;
+      delete stateToSave.blockedHouseCardId;
+      delete stateToSave.blockedHouseClicks;
+      delete stateToSave.currentMessage;
+      delete stateToSave.showMessage;
+      delete stateToSave.showTutorial;
+      delete stateToSave.tutorialMessage;
+      delete stateToSave.tutorialPhase;
+      delete stateToSave.gameEnding; // No guardar el final del juego
+      
+      localStorage.setItem('unDiaMas_savedGame', JSON.stringify(stateToSave));
+      localStorage.setItem('unDiaMas_lastSave', Date.now().toString());
+    } catch (error) {
+      console.error('Error saving game:', error);
+    }
+  }
+};
+
+// Estado inicial del juego - cargar partida guardada si existe
+const savedGame = loadSavedGame();
+const initialState: GameState = savedGame ? {
+  ...savedGame,
+  // Restaurar estado de juego activo
+  isPlaying: false,
+  isPaused: false,
+  gameOver: false,
+  showItemSelection: false,
+  showManual: false,
+  showInventorySummary: false,
+  showHelp: false,
+  showItemFoundModal: false,
+  foundItemName: '',
+  foundItemImage: '',
+  showInfoModal: false,
+  infoTitle: '',
+  infoMessage: '',
+  showTutorial: false,
+  tutorialMessage: '',
+  tutorialPhase: null,
+  showBlockedHouseModal: false,
+  blockedHouseCardId: null,
+  blockedHouseClicks: 0,
+  currentCards: [],
+  zombies: [],
+  currentMessage: '',
+  showMessage: false,
+  flyingItem: null,
+  flyingItemType: null,
+  characterEffect: null,
+  skipTutorial: loadSavedPreferences().skipTutorial
+} : {
   hunger: 100,
   thirst: 100,
   health: 100,
@@ -278,30 +369,86 @@ export const useGameStore = create<GameState & {
   
   // Utilidades
   resetGame: () => void;
+  saveGame: () => void;
+  loadGame: () => boolean;
+  hasSavedGame: () => boolean;
+  deleteSavedGame: () => void;
 }>((set, get) => ({
   ...initialState,
   
   // Acciones del juego
   startGame: () => {
+    // Recargar preferencias del localStorage después de limpiarlo
+    const currentPreferences = loadSavedPreferences();
+    
+    // Reiniciar completamente el estado del juego
     set({ 
       isPlaying: true, 
+      isPaused: false,
       gameOver: false, 
       showItemSelection: false,
       showInventorySummary: false,
       showManual: false,
       showHelp: false,
+      showItemFoundModal: false,
+      foundItemName: '',
+      foundItemImage: '',
+      showInfoModal: false,
+      infoTitle: '',
+      infoMessage: '',
+      showTutorial: false,
+      tutorialMessage: '',
+      tutorialPhase: null,
+      showBlockedHouseModal: false,
+      blockedHouseCardId: null,
+      blockedHouseClicks: 0,
+      currentCards: [],
+      zombies: [],
+      currentMessage: '',
+      showMessage: false,
+      shownMessages: new Set<string>(),
+      flyingItem: null,
+      flyingItemType: null,
+      characterEffect: null,
+      isShaking: false,
+      
+      // Estado del personaje
       hunger: 50, // Iniciar con hambre moderada para el tutorial
       thirst: 80,
-      health: 100
+      health: 100,
+      isInfected: false,
+      isCold: false,
+      
+      // Tiempo
+      day: 1,
+      hour: 8,
+      minute: 0,
+      isNight: false,
+      lastZombieSpawnHour: 0,
+      
+      // Inventario limpio
+      inventory: [],
+      
+      // Actualizar skipTutorial con las preferencias actuales
+      skipTutorial: currentPreferences.skipTutorial,
+      
+      // Estadísticas
+      stats: {
+        daysSurvived: 0,
+        zombiesKilled: 0,
+        itemsUsed: 0,
+        bestDay: 0,
+        totalPlayTime: 0
+      }
     });
     
     // Mostrar tutorial inicial si no está desactivado
-    if (!get().skipTutorial) {
+    if (!currentPreferences.skipTutorial) {
       get().showBearGuide(BEAR_MESSAGES.WELCOME);
     }
     
     // Generar cartas después de mostrar el tutorial (solo si no es tutorial)
-    if (get().skipTutorial) {
+    if (currentPreferences.skipTutorial) {
       setTimeout(() => {
         get().generateCards();
       }, 100);
@@ -379,19 +526,35 @@ export const useGameStore = create<GameState & {
   endGame: () => {
     const state = get();
     
-    // Determinar el tipo de final basado en las condiciones
+    // Determinar el tipo de final basado en las condiciones de muerte
     let endingType: GameEndingType;
     
-    if (state.hunger <= 0) {
-      endingType = GameEndingType.HUNGER;
-    } else if (state.thirst <= 0) {
-      endingType = GameEndingType.THIRST;
-    } else if (state.isCold) {
-      endingType = GameEndingType.COLD;
-    } else if (state.isInfected) {
-      endingType = GameEndingType.ZOMBIE;
+    // Prioridad: si la salud llegó a 0, determinar por qué
+    if (state.health <= 0) {
+      if (state.hunger <= 0) {
+        endingType = GameEndingType.HUNGER;
+      } else if (state.thirst <= 0) {
+        endingType = GameEndingType.THIRST;
+      } else if (state.isCold) {
+        endingType = GameEndingType.COLD;
+      } else if (state.isInfected) {
+        endingType = GameEndingType.ZOMBIE;
+      } else {
+        endingType = GameEndingType.ABSURD;
+      }
     } else {
-      endingType = GameEndingType.ABSURD;
+      // Si no hay salud 0, usar condiciones directas
+      if (state.hunger <= 0) {
+        endingType = GameEndingType.HUNGER;
+      } else if (state.thirst <= 0) {
+        endingType = GameEndingType.THIRST;
+      } else if (state.isCold) {
+        endingType = GameEndingType.COLD;
+      } else if (state.isInfected) {
+        endingType = GameEndingType.ZOMBIE;
+      } else {
+        endingType = GameEndingType.ABSURD;
+      }
     }
     
     const ending = gameEndings[endingType];
@@ -444,6 +607,11 @@ export const useGameStore = create<GameState & {
       day: newDay,
       isNight: isNight
     });
+    
+    // Guardar automáticamente cada hora
+    if (newMinute === 0) {
+      get().saveGame();
+    }
     
     // Si acaba de hacerse de noche y no tiene bufanda, aplicar frío
     if (isNight && wasDay && !state.isCold) {
@@ -1060,6 +1228,9 @@ export const useGameStore = create<GameState & {
     }
     
     set({ inventory: [...state.inventory] });
+    
+    // Guardar automáticamente después de añadir al inventario
+    get().saveGame();
   },
   
   // Usar item
@@ -1205,6 +1376,9 @@ export const useGameStore = create<GameState & {
         itemsUsed: state.stats.itemsUsed + 1
       }
     });
+    
+    // Guardar automáticamente después de usar un item
+    get().saveGame();
   },
   
   // Actualizar hambre
@@ -1372,6 +1546,75 @@ export const useGameStore = create<GameState & {
   // Reiniciar juego
   resetGame: () => {
     set(initialState);
+    // Eliminar partida guardada al reiniciar
+    if (typeof window !== 'undefined') {
+      localStorage.removeItem('unDiaMas_savedGame');
+      localStorage.removeItem('unDiaMas_lastSave');
+      // También resetear las preferencias del tutorial
+      localStorage.removeItem('skipTutorial');
+      localStorage.removeItem('tutorialCompleted');
+    }
+  },
+  
+  // Guardar partida
+  saveGame: () => {
+    const state = get();
+    saveGameToStorage(state);
+  },
+  
+  // Cargar partida
+  loadGame: () => {
+    const savedGame = loadSavedGame();
+    if (savedGame) {
+      set({
+        ...savedGame,
+        // Restaurar estado de juego activo
+        isPlaying: false,
+        isPaused: false,
+        gameOver: false,
+        showItemSelection: false,
+        showManual: false,
+        showInventorySummary: false,
+        showHelp: false,
+        showItemFoundModal: false,
+        foundItemName: '',
+        foundItemImage: '',
+        showInfoModal: false,
+        infoTitle: '',
+        infoMessage: '',
+        showTutorial: false,
+        tutorialMessage: '',
+        tutorialPhase: null,
+        showBlockedHouseModal: false,
+        blockedHouseCardId: null,
+        blockedHouseClicks: 0,
+        currentCards: [],
+        zombies: [],
+        currentMessage: '',
+        showMessage: false,
+        flyingItem: null,
+        flyingItemType: null,
+        characterEffect: null
+      });
+      return true;
+    }
+    return false;
+  },
+  
+  // Verificar si hay partida guardada
+  hasSavedGame: () => {
+    if (typeof window !== 'undefined') {
+      return localStorage.getItem('unDiaMas_savedGame') !== null;
+    }
+    return false;
+  },
+  
+  // Eliminar partida guardada
+  deleteSavedGame: () => {
+    if (typeof window !== 'undefined') {
+      localStorage.removeItem('unDiaMas_savedGame');
+      localStorage.removeItem('unDiaMas_lastSave');
+    }
   }
 }));
 

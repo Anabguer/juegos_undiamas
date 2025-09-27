@@ -1,6 +1,6 @@
 'use client';
 
-import React from 'react';
+import React, { useEffect } from 'react';
 import { motion } from 'framer-motion';
 
 interface ItemFoundModalProps {
@@ -20,8 +20,6 @@ export const ItemFoundModal: React.FC<ItemFoundModalProps> = ({
   onClose,
   isTutorial = false
 }) => {
-  if (!isOpen) return null;
-
   const handleClose = () => {
     if (isTutorial) {
       // Si es tutorial, mostrar el mensaje de zombie
@@ -35,52 +33,56 @@ export const ItemFoundModal: React.FC<ItemFoundModalProps> = ({
     onClose();
   };
 
+  // Auto-cerrar después de 3 segundos
+  useEffect(() => {
+    if (isOpen) {
+      const timer = setTimeout(() => {
+        handleClose();
+      }, 3000);
+      
+      return () => clearTimeout(timer);
+    }
+  }, [isOpen, handleClose]);
+
+  if (!isOpen) return null;
+
   return (
     <motion.div
-      initial={{ opacity: 0 }}
-      animate={{ opacity: 1 }}
-      exit={{ opacity: 0 }}
-      className="fixed inset-0 bg-black bg-opacity-70 flex items-center justify-center z-50 p-4"
+      initial={{ opacity: 0, x: 300, scale: 0.8 }}
+      animate={{ opacity: 1, x: 0, scale: 1 }}
+      exit={{ opacity: 0, x: 300, scale: 0.8 }}
+      transition={{ duration: 0.3, ease: "easeOut" }}
+      className="fixed top-4 right-4 z-50 max-w-xs"
       onClick={handleClose}
     >
       <motion.div
-        initial={{ scale: 0.8, y: 50 }}
-        animate={{ scale: 1, y: 0 }}
-        exit={{ scale: 0.8, y: 50 }}
-        className="bg-gray-800 p-6 sm:p-8 rounded-lg shadow-xl text-center max-w-sm w-full border-4 border-yellow-500"
-        onClick={(e) => e.stopPropagation()}
+        className="bg-gray-800 border-2 border-yellow-400 rounded-lg shadow-xl p-4 backdrop-blur-sm bg-opacity-95"
+        whileHover={{ scale: 1.02 }}
+        whileTap={{ scale: 0.98 }}
       >
-        <h2 className="text-2xl sm:text-3xl font-black text-yellow-400 mb-4" style={{ fontFamily: 'Comic Sans MS, cursive', textShadow: '2px 2px 0px #000' }}>
-          ¡Encontrado!
-        </h2>
-        
-        <div className="mb-6">
+        <div className="flex items-center space-x-3">
           <img 
             src={itemImage} 
             alt={itemName}
-            className="w-24 h-24 sm:w-32 sm:h-32 mx-auto mb-4 object-contain"
+            className="w-12 h-12 object-contain flex-shrink-0"
           />
-          <p className="text-lg sm:text-xl text-white font-bold mb-3" style={{ fontFamily: 'Comic Sans MS, cursive' }}>
-            {itemName}
-          </p>
-          {funnyPhrase && (
-            <p className="text-sm sm:text-base text-yellow-300 italic" style={{ fontFamily: 'Comic Sans MS, cursive' }}>
-              "{funnyPhrase}"
+          <div className="flex-1 min-w-0">
+            <p className="text-sm font-bold text-yellow-400 truncate" style={{ fontFamily: 'Comic Sans MS, cursive' }}>
+              ¡Encontrado!
             </p>
-          )}
+            <p className="text-white font-semibold text-sm truncate" style={{ fontFamily: 'Comic Sans MS, cursive' }}>
+              {itemName}
+            </p>
+            {funnyPhrase && (
+              <p className="text-xs text-gray-300 italic truncate" style={{ fontFamily: 'Comic Sans MS, cursive' }}>
+                "{funnyPhrase}"
+              </p>
+            )}
+          </div>
+          <div className="flex-shrink-0">
+            <div className="w-2 h-2 bg-yellow-400 rounded-full animate-pulse"></div>
+          </div>
         </div>
-        
-        <button
-          onClick={onClose}
-          className="bg-yellow-400 text-black px-6 py-3 rounded-lg text-lg font-black hover:bg-yellow-300 transition-colors"
-          style={{ 
-            fontFamily: 'Comic Sans MS, cursive',
-            textShadow: '1px 1px 0px #000',
-            boxShadow: '2px 2px 0px #000'
-          }}
-        >
-          ¡Continuar!
-        </button>
       </motion.div>
     </motion.div>
   );

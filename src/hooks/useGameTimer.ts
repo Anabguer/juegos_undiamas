@@ -4,7 +4,7 @@ import { useGameStore } from '@/store/gameStore';
 export const useGameTimer = () => {
   const intervalRef = useRef<NodeJS.Timeout | null>(null);
   const balanceIntervalRef = useRef<NodeJS.Timeout | null>(null);
-  const { isPlaying, isPaused, advanceTime, updateHunger, updateThirst, updateHealth, hunger, thirst, health } = useGameStore();
+  const { isPlaying, isPaused, advanceTime, updateHunger, updateThirst, updateHealth, hunger, thirst, health, isCold, isInfected } = useGameStore();
 
   useEffect(() => {
     if (isPlaying && !isPaused) {
@@ -19,9 +19,18 @@ export const useGameTimer = () => {
         updateHunger(-1);
         updateThirst(-1);
         
-        // Vida baja 2% cada 5 segundos si hambre o sed = 0
+        // Solo perder vida por condiciones específicas:
+        // 1. Si hambre o sed = 0: -3% vida cada 10 segundos
         if (hunger <= 0 || thirst <= 0) {
+          updateHealth(-3);
+        }
+        // 2. Si está con frío: -2% vida cada 10 segundos  
+        else if (isCold) {
           updateHealth(-2);
+        }
+        // 3. Si está infectado: -4% vida cada 10 segundos
+        else if (isInfected) {
+          updateHealth(-4);
         }
       }, 10000); // 10 segundos
     } else {
