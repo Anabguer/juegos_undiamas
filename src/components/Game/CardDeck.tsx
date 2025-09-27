@@ -162,9 +162,9 @@ export const CardDeck: React.FC = () => {
               whileHover={{ scale: 1.05, y: -5 }}
               whileTap={{ scale: 0.95 }}
               className={`
-                w-28 h-28 sm:w-36 sm:h-36 rounded-lg cursor-pointer
+                w-24 h-24 sm:w-28 sm:h-28 rounded-lg cursor-pointer
                 shadow-lg hover:shadow-xl transition-all duration-200
-                flex flex-col items-center justify-center p-2 sm:p-4
+                flex flex-col items-center justify-center p-1 sm:p-2
                 text-white touch-manipulation flex-shrink-0
                 bg-cover bg-center bg-no-repeat
               `}
@@ -187,13 +187,13 @@ export const CardDeck: React.FC = () => {
                 <img 
                   src={card.houseImage} 
                   alt={card.name}
-                  className="w-28 h-28 sm:w-32 sm:h-32 mb-1 sm:mb-2 object-contain"
+                  className="w-20 h-20 sm:w-24 sm:h-24 mb-1 sm:mb-2 object-contain"
                 />
               ) : card.effect.type === 'blocked_house' || card.isBlockedHouse ? (
                 <img 
                   src={card.houseImage} 
                   alt={card.name}
-                  className="w-28 h-28 sm:w-32 sm:h-32 mb-1 sm:mb-2 object-contain"
+                  className="w-20 h-20 sm:w-24 sm:h-24 mb-1 sm:mb-2 object-contain"
                 />
               ) : card.image ? (
                 <img 

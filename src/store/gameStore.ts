@@ -278,10 +278,12 @@ export const useGameStore = create<GameState & {
       get().showBearGuide(BEAR_MESSAGES.WELCOME);
     }
     
-    // Generar cartas después de mostrar el tutorial
-    setTimeout(() => {
-      get().generateCards();
-    }, 100);
+    // Generar cartas después de mostrar el tutorial (solo si no es tutorial)
+    if (get().skipTutorial) {
+      setTimeout(() => {
+        get().generateCards();
+      }, 100);
+    }
     
     // Iniciar timer de frases random de Peluso
     get().startRandomBearTimer();
@@ -502,6 +504,14 @@ export const useGameStore = create<GameState & {
   
   // Generar cartas
   generateCards: () => {
+    const state = get();
+    
+    // Si estamos en el tutorial de casa bloqueada, no generar cartas nuevas
+    if (state.showTutorial && state.tutorialPhase === 'blocked_house_modal') {
+      console.log('TUTORIAL: No generando cartas nuevas, tutorial de casa bloqueada activo');
+      return;
+    }
+    
     const cards: Card[] = [];
     
     // TODAS las cartas son casas normales, pero algunas están "marcadas" para ser bloqueadas
@@ -793,20 +803,8 @@ export const useGameStore = create<GameState & {
     } else if (card.effect.type === 'house') {
       // Verificar si esta casa está marcada como bloqueada
       if (card.isBlockedHouse) {
-        // Activar puerta bloqueada
-        set({
-          currentCards: state.currentCards.map(c => 
-            c.id === cardId 
-              ? { ...c, isBlocked: true, type: CardType.BLOCKED_HOUSE }
-              : c
-          )
-        });
-        
-        // Mostrar mensaje de puerta bloqueada
-        set({ 
-          currentMessage: "¡Ábrelaaa que nos pillan!", 
-          showMessage: true 
-        });
+        // Abrir modal de puerta bloqueada
+        get().openBlockedHouseModal(cardId);
         return; // No continuar con el resto de la lógica
       }
       
@@ -1050,6 +1048,14 @@ export const useGameStore = create<GameState & {
         setTimeout(() => {
           const { BEAR_MESSAGES } = require('@/config/characters');
           get().showBearGuide(BEAR_MESSAGES.TIP_HOUSES);
+          
+          // Después de mostrar el mensaje, generar la casa bloqueada para el tutorial
+          setTimeout(() => {
+            console.log('TUTORIAL: Generando casa bloqueada después del mensaje TIP_HOUSES');
+            get().generateBlockedHouseForTutorial();
+            // Establecer la fase del tutorial para casa bloqueada
+            set({ tutorialPhase: 'blocked_house_modal' });
+          }, 1000);
         }, 500);
       }
     } else if (item.type === ItemType.DRINK) {

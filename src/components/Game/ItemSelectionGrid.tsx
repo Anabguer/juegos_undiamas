@@ -266,7 +266,7 @@ export const ItemSelectionGrid: React.FC = () => {
       </motion.div>
 
       {/* Grid de objetos */}
-      <div className="relative w-full max-w-2xl h-[420px] sm:h-[520px] overflow-hidden rounded-lg mt-10 ml-4 sm:ml-6 mx-2 sm:mx-4">
+      <div className="relative w-full max-w-2xl h-[420px] sm:h-[520px] overflow-hidden rounded-lg mt-4 ml-4 sm:ml-6 mx-2 sm:mx-4">
         <AnimatePresence>
           {gridItems.map((item) => (
             <motion.div
