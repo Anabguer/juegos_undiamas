@@ -330,27 +330,31 @@ export const GameBoard: React.FC = () => {
       >
         <div className="text-center text-white max-w-2xl mx-auto bg-black bg-opacity-80 rounded-xl p-6 sm:p-8">
           <h1 className="text-3xl sm:text-4xl font-black mb-6 text-yellow-400" style={{ fontFamily: 'Comic Sans MS, cursive', textShadow: '3px 3px 0px #000' }}>
-            🧟 ¿CÓMO SOBREVIVIR?
+            GUÍA DE SUPERVIVENCIA
           </h1>
           
           <div className="text-left space-y-4 text-sm sm:text-base">
-            <p className="text-yellow-300 font-bold" style={{ fontFamily: 'Comic Sans MS, cursive' }}>🎯 <strong>Tu misión:</strong> Sobrevive el máximo número de días posible</p>
+            <p className="text-yellow-300 font-bold" style={{ fontFamily: 'Comic Sans MS, cursive' }}><strong>OBJETIVO:</strong> Sobrevive el máximo número de días posible</p>
             
-            <p className="text-white" style={{ fontFamily: 'Comic Sans MS, cursive' }}>⏰ <strong>Tiempo:</strong> Cada día tiene 24 horas. El tiempo pasa automáticamente</p>
+            <p className="text-white" style={{ fontFamily: 'Comic Sans MS, cursive' }}><strong>TIEMPO:</strong> Cada día tiene 24 horas. El tiempo pasa automáticamente</p>
             
-            <p className="text-green-400" style={{ fontFamily: 'Comic Sans MS, cursive' }}>🍎 <strong>Items útiles:</strong> Solo 5 tipos te ayudarán:
+            <p className="text-green-400" style={{ fontFamily: 'Comic Sans MS, cursive' }}><strong>ITEMS ÚTILES:</strong>
               <br/>• <span className="text-green-300">Manzana</span> - Restaura hambre
               <br/>• <span className="text-blue-300">Agua</span> - Restaura sed  
-              <br/>• <span className="text-red-300">Pastilla</span> - Cura infección
-              <br/>• <span className="text-yellow-300">Bate</span> - Defiende de zombis
-              <br/>• <span className="text-purple-300">Bufanda</span> - Protege del frío
+              <br/>• <span className="text-red-300">Pastilla</span> - Cura infección por zombie
+              <br/>• <span className="text-yellow-300">Bate</span> - Defiende de zombies
+              <br/>• <span className="text-purple-300">Bufanda</span> - Protege del frío nocturno
             </p>
             
-            <p className="text-gray-300" style={{ fontFamily: 'Comic Sans MS, cursive' }}>🗑️ <strong>Basura:</strong> El resto son objetos inútiles que solo dan mensajes graciosos</p>
+            <p className="text-gray-300" style={{ fontFamily: 'Comic Sans MS, cursive' }}><strong>ITEMS INÚTILES:</strong> El resto de objetos no sirven para nada</p>
             
-            <p className="text-blue-400" style={{ fontFamily: 'Comic Sans MS, cursive' }}>🎴 <strong>Cartas:</strong> Aparecerán situaciones que requieren items específicos</p>
+            <p className="text-blue-400" style={{ fontFamily: 'Comic Sans MS, cursive' }}><strong>NOCTURNO:</strong> Por la noche hace frío, necesitas bufanda o te bajará la hambre</p>
             
-            <p className="text-red-400" style={{ fontFamily: 'Comic Sans MS, cursive' }}>🧟 <strong>Zombis:</strong> Aparecen y se acercan. Si te tocan, te infectan</p>
+            <p className="text-red-400" style={{ fontFamily: 'Comic Sans MS, cursive' }}><strong>PELIGROS:</strong> Si tu hambre, sed o salud llegan a 0, mueres</p>
+            
+            <p className="text-orange-400" style={{ fontFamily: 'Comic Sans MS, cursive' }}><strong>ZOMBIES:</strong> Te contagian si no tienes bate, bajan tu salud y hambre</p>
+            
+            <p className="text-purple-400" style={{ fontFamily: 'Comic Sans MS, cursive' }}><strong>CASAS BLOQUEADAS:</strong> Haz clic muchas veces para entrar</p>
           </div>
           
           <div className="mt-8">
