@@ -36,16 +36,16 @@ const BlockedHouseModal: React.FC<BlockedHouseModalProps> = ({
   };
 
   const handleClick = () => {
-    // Verificar si estamos en tutorial
+    // Verificar si estamos en tutorial Y el tutorial no ha terminado
     const { useGameStore } = require('@/store/gameStore');
-    const { showTutorial } = useGameStore.getState();
+    const { showTutorial, tutorialPhase } = useGameStore.getState();
     
-    if (showTutorial) {
-      // En tutorial, mostrar mensajes de Peluso usando showBearGuide
+    if (showTutorial && tutorialPhase !== 'completed') {
+      // En tutorial activo, mostrar mensajes de Peluso usando showBearGuide
       const message = getClickMessage(clicks);
       useGameStore.getState().showBearGuide(message);
     } else {
-      // Fuera del tutorial, mostrar mensaje normal
+      // Fuera del tutorial o tutorial completado, mostrar mensaje normal
       const message = getClickMessage(clicks);
       useGameStore.setState({ 
         currentMessage: message, 
