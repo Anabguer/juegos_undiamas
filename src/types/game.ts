@@ -8,8 +8,14 @@ export interface GameState {
   isInfected: boolean;
   isCold: boolean;
   isShaking: boolean;
+  scarfUsedTonight: boolean;
   flyingItem: string | null;
   flyingItemType: 'from_inventory' | 'from_bear' | null;
+  zombieDeathEffect: {
+    zombieId: string;
+    position: number;
+    isActive: boolean;
+  } | null;
   characterEffect: 'drinking' | 'eating' | 'healing' | null;
   
   // Tiempo del juego
@@ -51,7 +57,19 @@ export interface GameState {
   // Mensajes
   currentMessage: string;
   showMessage: boolean;
-  shownMessages: Set<string>; // Para evitar mensajes repetidos
+  shownMessages: Set<string>;
+  
+  // Animación de transición de día
+  showDayTransition: boolean;
+  transitionDay: number; // Para evitar mensajes repetidos
+  
+  // Modal de casa bloqueada
+  showBlockedHouseModal: boolean;
+  blockedHouseCardId: string | null;
+  blockedHouseClicks: number;
+  blockedHouseTimeout: NodeJS.Timeout | null;
+  
+  // Tutorial eliminado
   
   // Estadísticas
   stats: GameStats;

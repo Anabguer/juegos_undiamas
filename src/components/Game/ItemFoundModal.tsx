@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useEffect } from 'react';
+import React, { useEffect, useCallback, useRef } from 'react';
 import { motion } from 'framer-motion';
 
 interface ItemFoundModalProps {
@@ -20,27 +20,28 @@ export const ItemFoundModal: React.FC<ItemFoundModalProps> = ({
   onClose,
   isTutorial = false
 }) => {
-  const handleClose = () => {
-    if (isTutorial) {
-      // Si es tutorial, mostrar el mensaje de zombie
-      const { useGameStore } = require('@/store/gameStore');
-      const { showBearGuide, set } = useGameStore.getState();
-      const { BEAR_MESSAGES } = require('@/config/characters');
-      
-      set({ tutorialPhase: 'zombie_warning' });
-      showBearGuide(BEAR_MESSAGES.TUTORIAL_ZOMBIE_DEFENSE);
-    }
+  const timerRef = useRef<NodeJS.Timeout | null>(null);
+
+  const handleClose = useCallback(() => {
     onClose();
-  };
+  }, [onClose]);
 
   // Auto-cerrar después de 3 segundos
   useEffect(() => {
     if (isOpen) {
-      const timer = setTimeout(() => {
+      console.log(`ITEM MODAL - Abriendo modal, auto-cerrar en 3 segundos`);
+      timerRef.current = setTimeout(() => {
+        console.log(`ITEM MODAL - Auto-cerrando modal después de 3 segundos`);
         handleClose();
       }, 3000);
       
-      return () => clearTimeout(timer);
+      return () => {
+        if (timerRef.current) {
+          console.log(`ITEM MODAL - Limpiando timer`);
+          clearTimeout(timerRef.current);
+          timerRef.current = null;
+        }
+      };
     }
   }, [isOpen, handleClose]);
 
@@ -48,39 +49,67 @@ export const ItemFoundModal: React.FC<ItemFoundModalProps> = ({
 
   return (
     <motion.div
-      initial={{ opacity: 0, x: 300, scale: 0.8 }}
-      animate={{ opacity: 1, x: 0, scale: 1 }}
-      exit={{ opacity: 0, x: 300, scale: 0.8 }}
-      transition={{ duration: 0.3, ease: "easeOut" }}
-      className="fixed top-4 right-4 z-50 max-w-xs"
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      exit={{ opacity: 0 }}
+      className="fixed inset-0 flex items-center justify-center z-50 cursor-pointer"
       onClick={handleClose}
     >
       <motion.div
-        className="bg-gray-800 border-2 border-yellow-400 rounded-lg shadow-xl p-4 backdrop-blur-sm bg-opacity-95"
-        whileHover={{ scale: 1.02 }}
-        whileTap={{ scale: 0.98 }}
+        initial={{ scale: 0.1, rotate: -180, y: -50 }}
+        animate={{ 
+          scale: [0.1, 1.3, 1], 
+          y: [0, -20, 0],
+          rotate: [-180, 0, 10, -10, 0],
+          boxShadow: [
+            "0 0 15px rgba(100, 100, 100, 0.3)",
+            "0 0 25px rgba(150, 150, 150, 0.5)",
+            "0 0 15px rgba(100, 100, 100, 0.3)"
+          ]
+        }}
+        exit={{ scale: 0.1, rotate: 180, y: 50 }}
+        transition={{ 
+          duration: 0.8, 
+          ease: [0.68, -0.55, 0.265, 1.55],
+          times: [0, 0.4, 0.7, 1],
+          boxShadow: { duration: 1.5, repeat: Infinity }
+        }}
+        className="bg-black bg-opacity-80 border-2 border-gray-600 rounded-lg shadow-2xl p-4 backdrop-blur-sm cursor-pointer"
+        onClick={handleClose}
       >
-        <div className="flex items-center space-x-3">
-          <img 
+        <div className="flex flex-col items-center space-y-4">
+          <motion.img 
             src={itemImage} 
             alt={itemName}
-            className="w-12 h-12 object-contain flex-shrink-0"
+            className="w-16 h-16 object-contain"
+            animate={{
+              scale: [1, 1.2, 1],
+              rotate: [0, 10, -10, 0]
+            }}
+            transition={{
+              duration: 0.8,
+              repeat: Infinity,
+              repeatDelay: 1
+            }}
           />
-          <div className="flex-1 min-w-0">
-            <p className="text-sm font-bold text-yellow-400 truncate" style={{ fontFamily: 'Comic Sans MS, cursive' }}>
-              ¡Encontrado!
-            </p>
-            <p className="text-white font-semibold text-sm truncate" style={{ fontFamily: 'Comic Sans MS, cursive' }}>
-              {itemName}
+          <div className="text-center space-y-2">
+            <p 
+              className="text-4xl font-black text-orange-400" 
+              style={{ fontFamily: 'Comic Sans MS, cursive', textShadow: '3px 3px 0px #000' }}
+            >
+              ¡{itemName}!
             </p>
             {funnyPhrase && (
-              <p className="text-xs text-gray-300 italic truncate" style={{ fontFamily: 'Comic Sans MS, cursive' }}>
-                "{funnyPhrase}"
-              </p>
+              <motion.p 
+                className="text-base text-gray-300 font-semibold" 
+                style={{ fontFamily: 'Comic Sans MS, cursive' }}
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                transition={{ delay: 0.3 }}
+              >
+                {funnyPhrase}
+              </motion.p>
             )}
-          </div>
-          <div className="flex-shrink-0">
-            <div className="w-2 h-2 bg-yellow-400 rounded-full animate-pulse"></div>
           </div>
         </div>
       </motion.div>

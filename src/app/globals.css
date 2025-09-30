@@ -11,9 +11,23 @@
   body {
     margin: 0;
     padding: 0;
-    overflow-x: hidden;
+    overflow: hidden;
     background: #000000;
     color: white;
+    height: 100vh;
+    width: 100vw;
+  }
+  
+  html {
+    overflow: hidden;
+    height: 100vh;
+    width: 100vw;
+  }
+  
+  #__next {
+    height: 100vh;
+    width: 100vw;
+    overflow: hidden;
   }
   
   /* Prevenir zoom en móvil */

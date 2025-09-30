@@ -18,6 +18,7 @@ import { ItemSelectionGrid } from './ItemSelectionGrid';
 import { FloatingMessage } from './FloatingMessage';
 import { PauseOverlay } from './PauseOverlay';
 import BlockedHouseModal from './BlockedHouseModal';
+import { DayTransitionAnimation } from './DayTransitionAnimation';
 
 // Función para obtener mensajes absurdos de items
 const getAbsurdMessage = (itemName: string, quantity: number) => {
@@ -98,7 +99,10 @@ export const GameBoard: React.FC = () => {
     showBlockedHouseModal,
     blockedHouseCardId,
     blockedHouseClicks,
-    closeBlockedHouseModal
+    closeBlockedHouseModal,
+    showDayTransition,
+    transitionDay,
+    hideDayTransitionAnimation
   } = useGameStore();
 
   // Iniciar el timer del juego
@@ -340,25 +344,25 @@ export const GameBoard: React.FC = () => {
           <div className="text-left space-y-4 text-sm sm:text-base">
             <p className="text-yellow-300 font-bold" style={{ fontFamily: 'Comic Sans MS, cursive' }}><strong>OBJETIVO:</strong> Sobrevive el máximo número de días posible</p>
             
-            <p className="text-white" style={{ fontFamily: 'Comic Sans MS, cursive' }}><strong>TIEMPO:</strong> Cada día tiene 24 horas. El tiempo pasa automáticamente</p>
+            <p className="text-white" style={{ fontFamily: 'Comic Sans MS, cursive' }}><strong>CÓMO JUGAR:</strong></p>
             
             <p className="text-green-400" style={{ fontFamily: 'Comic Sans MS, cursive' }}><strong>ITEMS ÚTILES:</strong>
-              <br/>• <span className="text-green-300">Manzana</span> - Restaura hambre
-              <br/>• <span className="text-blue-300">Agua</span> - Restaura sed  
-              <br/>• <span className="text-red-300">Pastilla</span> - Cura infección por zombie
-              <br/>• <span className="text-yellow-300">Bate</span> - Defiende de zombies
+              <br/>• <span className="text-green-300">Manzana</span> - Restaura hambre (+30)
+              <br/>• <span className="text-blue-300">Agua</span> - Restaura sed (+30)
+              <br/>• <span className="text-red-300">Pastilla</span> - Cura infección zombie (+20 salud)
+              <br/>• <span className="text-yellow-300">Bate</span> - Mata zombies (haz clic en inventario)
               <br/>• <span className="text-purple-300">Bufanda</span> - Protege del frío nocturno
             </p>
             
-            <p className="text-gray-300" style={{ fontFamily: 'Comic Sans MS, cursive' }}><strong>ITEMS INÚTILES:</strong> El resto de objetos no sirven para nada</p>
-            
-            <p className="text-blue-400" style={{ fontFamily: 'Comic Sans MS, cursive' }}><strong>NOCTURNO:</strong> Por la noche hace frío, necesitas bufanda o te bajará la hambre</p>
+            <p className="text-blue-400" style={{ fontFamily: 'Comic Sans MS, cursive' }}><strong>NOCTURNO (21:00-05:00):</strong> Hace frío, necesitas bufanda o te bajará el hambre y luego ya sabes lo que pasa</p>
             
             <p className="text-red-400" style={{ fontFamily: 'Comic Sans MS, cursive' }}><strong>PELIGROS:</strong> Si tu hambre, sed o salud llegan a 0, mueres</p>
             
-            <p className="text-orange-400" style={{ fontFamily: 'Comic Sans MS, cursive' }}><strong>ZOMBIES:</strong> Te contagian si no tienes bate, bajan tu salud y hambre</p>
+            <p className="text-orange-400" style={{ fontFamily: 'Comic Sans MS, cursive' }}><strong>ZOMBIES:</strong> Te contagian si no los matas antes con el bate, bajarán tu sed y hambre más rápido. Haz clic en el bate del inventario para matarlos</p>
             
-            <p className="text-purple-400" style={{ fontFamily: 'Comic Sans MS, cursive' }}><strong>CASAS BLOQUEADAS:</strong> Haz clic muchas veces para entrar</p>
+            <p className="text-purple-400" style={{ fontFamily: 'Comic Sans MS, cursive' }}><strong>CASAS:</strong> Haz clic para recoger items. Algunas están bloqueadas y necesitarán más clicks.</p>
+            
+            <p className="text-yellow-400" style={{ fontFamily: 'Comic Sans MS, cursive' }}><strong>USAR ITEMS:</strong> Haz clic en los items del inventario de abajo para usarlos</p>
           </div>
           
           <div className="mt-8">
@@ -464,47 +468,101 @@ export const GameBoard: React.FC = () => {
     );
   }
 
-  if (gameOver && gameEnding) {
+  if (gameOver) {
+    console.log(`GAME BOARD - gameOver: ${gameOver}, gameEnding:`, gameEnding);
+    
+    // Mostrar pantalla de muerte incluso si gameEnding es null
+    const defaultEnding = {
+      type: 'ABSURD',
+      title: "¡Has Muerto!",
+      message: "Algo salió mal y no sabemos qué pasó exactamente...",
+      image: "/images/final_absurdo.png",
+      isGood: false
+    };
+    
+    const endingToShow = gameEnding || defaultEnding;
+    
+    // Frases específicas de Peluso para cada tipo de final (las correctas)
+    const getPelusoQuote = (endingType: string) => {
+      const quotes = {
+        'HUNGER': "Murió de hambre… aunque rodeado de buffet libre.",
+        'THIRST': "Ni un vaso de agua le dieron. Tragedia griega.",
+        'COLD': "Se quedó helado… literalmente.",
+        'ZOMBIE': "Se unió al equipo contrario. ¡Ahora muerde mejor que come!",
+        'ABSURD': "Murió como vivió: abrazado a su peluche favorito."
+      };
+      
+      return quotes[endingType as keyof typeof quotes] || quotes['ABSURD'];
+    };
+    
+    const pelusoQuote = getPelusoQuote(endingToShow.type);
+    
+    console.log(`GAME BOARD - Mostrando pantalla de final:`, endingToShow);
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-red-900 via-gray-900 to-red-800 px-4">
-        <div className="text-center text-white max-w-lg mx-auto bg-black bg-opacity-80 rounded-xl p-6 sm:p-8">
-          {/* Imagen del final */}
-          <div className="mb-6">
-            <img 
-              src={gameEnding.image} 
-              alt={gameEnding.title}
-              className="w-32 h-32 sm:w-40 sm:h-40 mx-auto object-contain"
-            />
+      <div className="min-h-screen relative overflow-hidden">
+        {/* Imagen de fondo que ocupa toda la pantalla */}
+        <div 
+          className="absolute inset-0 bg-cover bg-center bg-no-repeat"
+          style={{
+            backgroundImage: `url(${endingToShow.image})`,
+            backgroundSize: 'cover',
+            backgroundPosition: 'center'
+          }}
+        />
+        
+        {/* Overlay oscuro para que el texto se vea bien - reducido para ver mejor la imagen */}
+        <div className="absolute inset-0 bg-black bg-opacity-30" />
+        
+        {/* Contenido centrado */}
+        <div className="relative z-10 min-h-screen flex items-center justify-center px-4">
+          <div className="text-center text-white max-w-lg mx-auto bg-black bg-opacity-80 rounded-xl p-6 sm:p-8">
+            {/* Título del final */}
+            <h1 className="text-3xl sm:text-4xl font-bold mb-4 text-yellow-400" style={{ fontFamily: 'Comic Sans MS, cursive', textShadow: '3px 3px 0px #000' }}>
+              {endingToShow.title}
+            </h1>
+            
+            {/* Mensaje del final */}
+            <p className="text-lg sm:text-xl mb-6 text-gray-200" style={{ fontFamily: 'Comic Sans MS, cursive' }}>
+              {endingToShow.message}
+            </p>
+            
+            {/* Estadísticas */}
+            <div className="mb-6 text-sm sm:text-base text-gray-300">
+              <p>Has sobrevivido <span className="text-yellow-400 font-bold">{day}</span> días</p>
+            </div>
+            
+            {/* Frase irónica de Peluso */}
+            <div className="mb-6 p-4 bg-yellow-400 bg-opacity-20 rounded-lg border-2 border-yellow-400">
+              <div className="flex items-center justify-center mb-2">
+                <img 
+                  src="/images/ositonarrador.png" 
+                  alt="Peluso" 
+                  className="w-8 h-8 mr-2"
+                />
+                <span className="text-yellow-400 font-bold text-sm">Peluso dice:</span>
+              </div>
+              <p className="text-yellow-200 text-sm italic" style={{ fontFamily: 'Comic Sans MS, cursive' }}>
+                "{pelusoQuote}"
+              </p>
+            </div>
+            
+            {/* Botón de reintentar */}
+            <button
+              onClick={() => {
+                console.log(`GAME BOARD - Botón reintentar presionado`);
+                resetGame();
+              }}
+              className="bg-yellow-400 text-black px-6 py-3 sm:px-8 sm:py-4 rounded-xl text-lg sm:text-xl font-black hover:bg-yellow-300 transition-colors touch-manipulation shadow-2xl border-4 border-black transform hover:scale-105"
+              style={{ 
+                minHeight: '50px',
+                fontFamily: 'Comic Sans MS, cursive',
+                textShadow: '2px 2px 0px #000',
+                boxShadow: '4px 4px 0px #000'
+              }}
+            >
+              ¡Intentar de Nuevo!
+            </button>
           </div>
-          
-          {/* Título del final */}
-          <h1 className="text-3xl sm:text-4xl font-bold mb-4 text-yellow-400" style={{ fontFamily: 'Comic Sans MS, cursive', textShadow: '3px 3px 0px #000' }}>
-            {gameEnding.title}
-          </h1>
-          
-          {/* Mensaje del final */}
-          <p className="text-lg sm:text-xl mb-6 text-gray-200" style={{ fontFamily: 'Comic Sans MS, cursive' }}>
-            {gameEnding.message}
-          </p>
-          
-          {/* Estadísticas */}
-          <div className="mb-6 text-sm sm:text-base text-gray-300">
-            <p>Has sobrevivido <span className="text-yellow-400 font-bold">{day}</span> días</p>
-          </div>
-          
-          {/* Botón de reintentar */}
-          <button
-            onClick={resetGame}
-            className="bg-yellow-400 text-black px-6 py-3 sm:px-8 sm:py-4 rounded-xl text-lg sm:text-xl font-black hover:bg-yellow-300 transition-colors touch-manipulation shadow-2xl border-4 border-black transform hover:scale-105"
-            style={{ 
-              minHeight: '50px',
-              fontFamily: 'Comic Sans MS, cursive',
-              textShadow: '2px 2px 0px #000',
-              boxShadow: '4px 4px 0px #000'
-            }}
-          >
-            ¡Intentar de Nuevo!
-          </button>
         </div>
       </div>
     );
@@ -512,7 +570,7 @@ export const GameBoard: React.FC = () => {
 
   return (
     <div 
-      className={`min-h-screen ${getBackgroundClass()} ${getScreenEffect()} ${isShaking ? 'animate-pulse' : ''} transition-all duration-1000 bg-cover bg-center bg-no-repeat`}
+      className={`h-screen overflow-hidden ${getBackgroundClass()} ${getScreenEffect()} ${isShaking ? 'animate-pulse' : ''} transition-all duration-1000 bg-cover bg-center bg-no-repeat`}
       style={getBackgroundImage()}
     >
       {/* Item Found Modal */}
@@ -533,18 +591,20 @@ export const GameBoard: React.FC = () => {
       
       
       {/* Contenido principal */}
-      <div className="container mx-auto px-2 sm:px-4 pt-16 sm:pt-20 pb-20 sm:pb-24">
+      <div className="h-full flex flex-col px-2 sm:px-4 pt-16 sm:pt-20 pb-20 sm:pb-24">
         {/* Barras de estado en una línea */}
         <StatusBars />
         
         {/* Campo de zombis - ARRIBA DE LAS CARTAS */}
-          <ZombieField />
-          
-          {/* Cartas */}
-          <CardDeck />
+        <ZombieField />
         
-        {/* Personaje (más grande) */}
-        <Character />
+        {/* Cartas */}
+        <CardDeck />
+        
+        {/* Personaje (más grande) - flex-grow para ocupar espacio restante */}
+        <div className="flex-grow flex items-center justify-center">
+          <Character />
+        </div>
       </div>
       
       {/* Inventario y mensaje juntos al final */}
@@ -627,6 +687,13 @@ export const GameBoard: React.FC = () => {
           </motion.div>
         </div>
       )}
+      
+      {/* Animación de transición de día */}
+      <DayTransitionAnimation
+        isVisible={showDayTransition}
+        day={day}
+        onComplete={hideDayTransitionAnimation}
+      />
       
     </div>
   );

@@ -16,111 +16,35 @@ export const FloatingMessage: React.FC<FloatingMessageProps> = ({
   onClose,
   isGuide = false
 }) => {
-  console.log('FLOATING_MESSAGE: Renderizando mensaje:', message, 'isVisible:', isVisible, 'isGuide:', isGuide);
-  // Pausar el juego si es un mensaje de guía
-  React.useEffect(() => {
-    if (isVisible && isGuide) {
-      const { pauseGame } = require('@/store/gameStore').useGameStore.getState();
-      pauseGame();
-    } else if (!isVisible && isGuide) {
-      const { resumeGame } = require('@/store/gameStore').useGameStore.getState();
-      resumeGame();
-    }
-  }, [isVisible, isGuide]);
-
+  // No renderizar si no hay mensaje o está vacío
+  if (!message || message.trim() === '' || !isVisible) {
+    return null;
+  }
+  
   // Función para cerrar y reanudar el juego
   const handleClose = React.useCallback(() => {
-    console.log('FLOATING_MESSAGE: handleClose llamado, isGuide:', isGuide, 'message:', message);
     if (isGuide) {
-      const { resumeGame, skipTutorial, showBearGuide } = require('@/store/gameStore').useGameStore.getState();
-      const { BEAR_MESSAGES } = require('@/config/characters');
+      const { useGameStore } = require('@/store/gameStore');
+      const state = useGameStore.getState();
       
-      // Si es el primer mensaje de bienvenida, mostrar el segundo
-      if (message === BEAR_MESSAGES.WELCOME && !skipTutorial) {
-        setTimeout(() => {
-          showBearGuide(BEAR_MESSAGES.TUTORIAL_DISABLE);
-        }, 500);
-      } else {
-        // Si es el segundo mensaje, iniciar el tutorial de comida
-        if (message === BEAR_MESSAGES.TUTORIAL_DISABLE && !skipTutorial) {
-          setTimeout(() => {
-            // Dar una manzana al jugador (siempre, tenga o no tenga)
-            const { addToInventory, triggerFlyingItem } = require('@/store/gameStore').useGameStore.getState();
-            addToInventory({
-              id: 'tutorial_apple',
-              name: 'Manzana',
-              type: 'food',
-              image: '/images/apple.png',
-              quantity: 1
-            });
-            // Efecto visual de manzana volando desde Peluso
-            triggerFlyingItem('Manzana', 'from_bear');
-            // Mostrar mensaje de tutorial de comida
-            showBearGuide(BEAR_MESSAGES.TUTORIAL_FOOD);
-          }, 500);
-        } else if (message === BEAR_MESSAGES.TUTORIAL_FOOD) {
-          // Si es el mensaje de comida, NO cerrar hasta que coma
-          return; // No ejecutar onClose()
-        } else if (message === BEAR_MESSAGES.TIP_HOUSES) {
-          // Si es el mensaje de casas, NO cerrar hasta que haga clic en una casa
-          return; // No ejecutar onClose()
-        } else if (message === BEAR_MESSAGES.TUTORIAL_BLOCKED_HOUSE) {
-          // Si es el mensaje de casas bloqueadas, NO cerrar automáticamente
-          return; // No ejecutar onClose()
-        } else if (message === BEAR_MESSAGES.ZOMBIE_APPEAR) {
-          // Si es el mensaje del zombie, NO cerrar automáticamente hasta usar el bate
-          return; // No ejecutar onClose()
-        } else if (message === BEAR_MESSAGES.TUTORIAL_FINAL) {
-          // Si es el mensaje final del tutorial, completar el tutorial
-          const { useGameStore } = require('@/store/gameStore');
-          useGameStore.setState({ 
-            showTutorial: false,
-            tutorialPhase: 'completed',
-            isPaused: false
-          });
-          // Marcar tutorial como completado en localStorage
-          useGameStore.getState().setTutorialCompleted();
-          useGameStore.getState().resumeGame();
-          return; // No ejecutar onClose()
-        } else {
-          resumeGame();
-        }
-      }
+        // Tutorial eliminado - solo reanudar el juego
+        useGameStore.setState({ 
+          isPaused: false
+        });
     }
     onClose();
-  }, [isGuide, onClose, message]);
+  }, [isGuide, onClose]);
   
-  // Auto-ocultar solo si NO es un mensaje de guía
+  // Auto-ocultar después de 6 segundos
   React.useEffect(() => {
-    if (isVisible && !isGuide) {
+    if (isVisible) {
       const timer = setTimeout(() => {
-        handleClose();
-      }, 4000);
+        onClose();
+      }, 6000);
       
       return () => clearTimeout(timer);
     }
-  }, [isVisible, isGuide, handleClose]);
-
-  // Cerrar al hacer clic en cualquier parte de la pantalla
-  React.useEffect(() => {
-    if (isVisible) {
-      const handleClick = () => {
-        // No cerrar si es el mensaje de tutorial de comida, casas, casas bloqueadas, bate, bufanda o zombie
-        const { BEAR_MESSAGES } = require('@/config/characters');
-        if (message === BEAR_MESSAGES.TUTORIAL_FOOD || message === BEAR_MESSAGES.TIP_HOUSES || message === BEAR_MESSAGES.TUTORIAL_BLOCKED_HOUSE || message === BEAR_MESSAGES.TUTORIAL_BAT || message === BEAR_MESSAGES.TUTORIAL_COLD_NIGHT || message === BEAR_MESSAGES.TUTORIAL_COLD_NIGHT_FINAL || message === BEAR_MESSAGES.ZOMBIE_APPEAR) {
-          return;
-        }
-        handleClose();
-      };
-      
-      // Añadir listener a todo el documento
-      document.addEventListener('click', handleClick);
-      
-      return () => {
-        document.removeEventListener('click', handleClick);
-      };
-    }
-  }, [isVisible, handleClose, message]);
+  }, [isVisible]); // Solo depende de isVisible, no de onClose
   return (
     <AnimatePresence>
       {isVisible && (
@@ -129,60 +53,22 @@ export const FloatingMessage: React.FC<FloatingMessageProps> = ({
           animate={{ opacity: 1, x: 0, scale: 1 }}
           exit={{ opacity: 0, x: -300, scale: 0.8 }}
           transition={{ duration: 0.3, ease: "easeOut" }}
-          className="fixed top-16 left-4 z-[60] max-w-xs cursor-pointer"
-          onClick={() => {
-            // Si es el mensaje de casa bloqueada, abrir el modal
-            const { BEAR_MESSAGES } = require('@/config/characters');
-            if (message === BEAR_MESSAGES.TUTORIAL_BLOCKED_HOUSE) {
-              const { openBlockedHouseModal, currentCards } = require('@/store/gameStore').useGameStore.getState();
-              
-              // Encontrar la carta de casa bloqueada y abrir el modal
-              const blockedHouseCard = currentCards.find(card => card.isBlockedHouse);
-              if (blockedHouseCard) {
-                openBlockedHouseModal(blockedHouseCard.id);
-              }
-              
-              // Cerrar el mensaje
-              onClose();
-            }
-          }}
+          className="fixed top-16 left-4 z-[60] max-w-xs"
         >
-          <div className="bg-black bg-opacity-80 rounded-lg p-3 flex items-start space-x-3 shadow-2xl border-2 border-yellow-400">
-            {/* Imagen de Peluso (clickeable para mensajes graciosos) */}
-            <div 
-              className="flex-shrink-0 cursor-pointer hover:scale-110 transition-transform duration-200"
-              onClick={() => {
-                // Solo mostrar mensaje gracioso si NO es un mensaje de tutorial Y el tutorial no está desactivado
-                if (!isGuide) {
-                  const { useGameStore } = require('@/store/gameStore');
-                  const { skipTutorial } = useGameStore.getState();
-                  
-                  if (!skipTutorial) {
-                    const { BEAR_MESSAGES } = require('@/config/characters');
-                    const randomTouchMsg = BEAR_MESSAGES.TOUCH_OBJECTS[Math.floor(Math.random() * BEAR_MESSAGES.TOUCH_OBJECTS.length)];
-                    // Mostrar como mensaje normal (no tutorial)
-                    useGameStore.setState({ 
-                      currentMessage: randomTouchMsg, 
-                      showMessage: true 
-                    });
-                  }
-                }
-              }}
-            >
+          <div className="bg-black bg-opacity-80 rounded-lg p-3 shadow-2xl border-2 border-yellow-400">
+            {/* Imagen del oso y mensaje */}
+            <div className="flex items-start space-x-3">
               <img 
                 src="/images/ositonarrador.png" 
                 alt="Peluso" 
-                className="w-12 h-12 object-contain"
+                className="w-8 h-8 flex-shrink-0"
               />
+              <div className="flex-1">
+                <p className="text-white text-sm font-bold leading-tight" style={{ fontFamily: 'Comic Sans MS, cursive' }}>
+                  {message}
+                </p>
+              </div>
             </div>
-            
-            {/* Mensaje */}
-            <div className="flex-1">
-              <p className="text-white text-sm font-bold leading-tight" style={{ fontFamily: 'Comic Sans MS, cursive' }}>
-                {message}
-              </p>
-            </div>
-            
           </div>
         </motion.div>
       )}

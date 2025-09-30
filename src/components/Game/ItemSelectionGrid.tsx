@@ -18,6 +18,11 @@ interface GridItem {
 
 export const ItemSelectionGrid: React.FC = () => {
   const { startGame, addToInventory } = useGameStore();
+  
+  // Limpiar inventario al empezar la selección de items
+  useEffect(() => {
+    useGameStore.setState({ inventory: [] });
+  }, []);
   const [timeLeft, setTimeLeft] = useState(8);
   const [gridItems, setGridItems] = useState<GridItem[]>([]);
   const [selectedItems, setSelectedItems] = useState<string[]>([]);
@@ -187,14 +192,18 @@ export const ItemSelectionGrid: React.FC = () => {
     if (item) {
       const message = getItemMessage(item);
       
-      // Mostrar mensaje gracioso
-      useGameStore.setState({ currentMessage: message, showMessage: true });
+      // NO mostrar mensajes aquí - solo en el juego principal
       
       // Añadir items útiles al inventario (solo los 5 tipos específicos)
       if (item.name === 'Manzana' || item.name === 'Agua' || item.name === 'Pastilla' || 
           item.name === 'Bate' || item.name === 'Bufanda') {
+        
+        // Crear ID fijo basado en el nombre para que coincida con Inventory
+        const fixedId = `${item.type}-${item.name.toLowerCase()}`;
+        
+        
         addToInventory({
-          id: itemId,
+          id: fixedId,
           name: item.name,
           type: item.type,
           emoji: item.emoji,
@@ -205,16 +214,7 @@ export const ItemSelectionGrid: React.FC = () => {
         // Incrementar contador de items útiles
         setUsefulItemsCount(prev => prev + 1);
       } else {
-        // Añadir items basura al inventario con cantidad 0 (para mostrar en resumen)
-        addToInventory({
-          id: itemId,
-          name: item.name,
-          type: item.type,
-          emoji: item.emoji,
-          image: item.image,
-          quantity: 0, // Cantidad 0 para que no se puedan usar
-          description: `Item basura recogido - solo para colección`
-        });
+        // No añadir basura al inventario - solo mostrar mensaje gracioso
       }
     }
 
@@ -330,6 +330,7 @@ export const ItemSelectionGrid: React.FC = () => {
           Toca los objetos que quieras llevar contigo
         </p>
       </div>
+
 
     </div>
   );

@@ -1,18 +1,10 @@
 import { create } from 'zustand';
 import { GameState, Card, Zombie, InventoryItem, GameStats, CardType, ItemType, ZombieType, GameEndingType, CardEffect } from '@/types/game';
 import { BEAR_MESSAGES } from '@/config/characters';
+// Tutorial eliminado
 
-// Función para cargar preferencias guardadas
+// Función para cargar preferencias guardadas (TUTORIAL ELIMINADO)
 const loadSavedPreferences = () => {
-  if (typeof window !== 'undefined') {
-    const savedSkipTutorial = localStorage.getItem('skipTutorial');
-    const savedTutorialCompleted = localStorage.getItem('tutorialCompleted');
-    
-    return {
-      skipTutorial: savedSkipTutorial === 'true',
-      tutorialCompleted: savedTutorialCompleted === 'true'
-    };
-  }
   return {
     skipTutorial: false,
     tutorialCompleted: false
@@ -103,6 +95,7 @@ const initialState: GameState = savedGame ? {
   showBlockedHouseModal: false,
   blockedHouseCardId: null,
   blockedHouseClicks: 0,
+  blockedHouseTimeout: null,
   currentCards: [],
   zombies: [],
   currentMessage: '',
@@ -110,7 +103,7 @@ const initialState: GameState = savedGame ? {
   flyingItem: null,
   flyingItemType: null,
   characterEffect: null,
-  skipTutorial: loadSavedPreferences().skipTutorial
+  skipTutorial: false
 } : {
   hunger: 100,
   thirst: 100,
@@ -118,8 +111,10 @@ const initialState: GameState = savedGame ? {
   isInfected: false,
   isCold: false,
   isShaking: false,
+  scarfUsedTonight: false, // Para evitar que vuelva el frío si ya usaste bufanda
   flyingItem: null,
   flyingItemType: null,
+  zombieDeathEffect: null, // Efecto visual cuando se mata un zombie
   characterEffect: null,
   
   day: 1,
@@ -142,16 +137,14 @@ const initialState: GameState = savedGame ? {
   infoMessage: '',
   showTutorial: false,
   tutorialMessage: '',
-  skipTutorial: loadSavedPreferences().skipTutorial,
-  tutorialStep: 0,
-  tutorialActive: false,
-  tutorialDone: false,
+  skipTutorial: false,
   tutorialPhase: null,
   
   // Modal de casa bloqueada
   showBlockedHouseModal: false,
   blockedHouseCardId: null,
   blockedHouseClicks: 0,
+  blockedHouseTimeout: null, // Timer para cerrar automáticamente
   
   inventory: [],
   zombies: [],
@@ -161,6 +154,10 @@ const initialState: GameState = savedGame ? {
   currentMessage: '',
   showMessage: false,
   shownMessages: new Set<string>(), // Para evitar mensajes repetidos
+  
+  // Animación de transición de día
+  showDayTransition: false,
+  transitionDay: 1,
   
   stats: {
     daysSurvived: 0,
@@ -172,15 +169,15 @@ const initialState: GameState = savedGame ? {
 };
 
 // Configuración del juego
-const gameConfig = {
-  timePerHour: 5, // 5 segundos reales = 1 hora del juego
-  cardsPerTurn: 3,
-  cardDisplayTime: 5, // 5 segundos para elegir
-  zombieSpawnRate: 0.08, // 8% de probabilidad por hora (más suave)
-  maxZombiesAtOnce: 2, // Máximo 2 zombies a la vez
-  zombieSpawnCooldown: 4, // 4 horas de cooldown entre spawns
-  difficultyMultiplier: 1.15 // +15% dificultad por día
-};
+  const gameConfig = {
+    timePerHour: 1, // 1 segundo real = 1 hora del juego (súper rápido)
+    cardsPerTurn: 3,
+    cardDisplayTime: 5, // 5 segundos para elegir
+    zombieSpawnRate: 0.25, // 25% de probabilidad por hora (más emocionante)
+    maxZombiesAtOnce: 2, // Máximo 2 zombies a la vez
+    zombieSpawnCooldown: 2, // 2 horas de cooldown entre spawns
+    difficultyMultiplier: 1.15 // +15% dificultad por día
+  };
 
 // Función para calcular la dificultad actual
 const getCurrentDifficulty = (day: number) => {
@@ -304,6 +301,10 @@ const ironicMessages = {
 
 // Store principal del juego
 export const useGameStore = create<GameState & {
+  // Modal de casa bloqueada
+  showBlockedHouseModal: boolean;
+  blockedHouseCardId: string | null;
+  blockedHouseClicks: number;
   // Acciones
   startGame: () => void;
   setShowItemSelection: (show: boolean) => void;
@@ -351,6 +352,8 @@ export const useGameStore = create<GameState & {
   // Mensajes
   displayMessage: (message: string) => void;
   hideMessage: () => void;
+  showDayTransitionAnimation: (day: number) => void;
+  hideDayTransitionAnimation: () => void;
   
   // Efectos visuales
   triggerShake: () => void;
@@ -361,9 +364,6 @@ export const useGameStore = create<GameState & {
   startRandomBearTimer: () => void;
   
   // Modal de casa bloqueada
-  showBlockedHouseModal: boolean;
-  blockedHouseCardId: string | null;
-  blockedHouseClicks: number;
   openBlockedHouseModal: (cardId: string) => void;
   closeBlockedHouseModal: () => void;
   
@@ -373,14 +373,11 @@ export const useGameStore = create<GameState & {
   loadGame: () => boolean;
   hasSavedGame: () => boolean;
   deleteSavedGame: () => void;
-}>((set, get) => ({
+}>((set, get, api) => ({
   ...initialState,
   
   // Acciones del juego
   startGame: () => {
-    // Recargar preferencias del localStorage después de limpiarlo
-    const currentPreferences = loadSavedPreferences();
-    
     // Reiniciar completamente el estado del juego
     set({ 
       isPlaying: true, 
@@ -413,7 +410,7 @@ export const useGameStore = create<GameState & {
       isShaking: false,
       
       // Estado del personaje
-      hunger: 50, // Iniciar con hambre moderada para el tutorial
+      hunger: 80,
       thirst: 80,
       health: 100,
       isInfected: false,
@@ -425,12 +422,10 @@ export const useGameStore = create<GameState & {
       minute: 0,
       isNight: false,
       lastZombieSpawnHour: 0,
+      scarfUsedTonight: false, // Resetear bufanda al empezar
       
-      // Inventario limpio
-      inventory: [],
-      
-      // Actualizar skipTutorial con las preferencias actuales
-      skipTutorial: currentPreferences.skipTutorial,
+      // Inventario limpio - NO limpiar aquí, se maneja en ItemSelectionGrid
+      // inventory: [],
       
       // Estadísticas
       stats: {
@@ -442,17 +437,10 @@ export const useGameStore = create<GameState & {
       }
     });
     
-    // Mostrar tutorial inicial si no está desactivado
-    if (!currentPreferences.skipTutorial) {
-      get().showBearGuide(BEAR_MESSAGES.WELCOME);
-    }
-    
-    // Generar cartas después de mostrar el tutorial (solo si no es tutorial)
-    if (currentPreferences.skipTutorial) {
-      setTimeout(() => {
-        get().generateCards();
-      }, 100);
-    }
+    // Generar cartas inmediatamente
+    setTimeout(() => {
+      get().generateCards();
+    }, 100);
     
     // Iniciar timer de frases random de Peluso
     get().startRandomBearTimer();
@@ -475,6 +463,20 @@ export const useGameStore = create<GameState & {
   },
   
   setShowItemFoundModal: (show: boolean) => {
+    const state = get();
+    
+    // Si el juego terminó, no mostrar modales
+    if (state.gameOver) {
+      console.log(`ITEM MODAL - Juego terminado, ignorando apertura de modal`);
+      return;
+    }
+    
+    // Si ya hay un modal abierto y se intenta abrir otro, ignorar
+    if (state.showItemFoundModal && show) {
+      console.log(`ITEM MODAL - Ya hay un modal abierto, ignorando apertura duplicada`);
+      return;
+    }
+    
     set({ showItemFoundModal: show });
   },
   
@@ -508,12 +510,7 @@ export const useGameStore = create<GameState & {
   
   // Marcar tutorial como completado
   setTutorialCompleted: () => {
-    if (typeof window !== 'undefined') {
-      localStorage.setItem('tutorialCompleted', 'true');
-      // Si completó el tutorial, marcar como desactivado por defecto
-      localStorage.setItem('skipTutorial', 'true');
-    }
-    set({ skipTutorial: true });
+    // Tutorial eliminado - función vacía
   },
   
   pauseGame: () => set({ isPaused: true }),
@@ -525,6 +522,23 @@ export const useGameStore = create<GameState & {
   
   endGame: () => {
     const state = get();
+    
+    // Si el juego ya terminó, no hacer nada
+    if (state.gameOver) {
+      console.log(`GAME END - Juego ya terminado, ignorando llamada a endGame`);
+      return;
+    }
+    
+    console.log(`🎮 GAME END - ¡JUEGO TERMINADO! Estado actual:`, {
+      health: state.health,
+      hunger: state.hunger,
+      thirst: state.thirst,
+      isCold: state.isCold,
+      isInfected: state.isInfected,
+      day: state.day,
+      isPlaying: state.isPlaying,
+      gameOver: state.gameOver
+    });
     
     // Determinar el tipo de final basado en las condiciones de muerte
     let endingType: GameEndingType;
@@ -559,6 +573,8 @@ export const useGameStore = create<GameState & {
     
     const ending = gameEndings[endingType];
     
+    console.log(`GAME END - Tipo de final: ${endingType}, Ending:`, ending);
+    
     set({ 
       isPlaying: false, 
       gameOver: true,
@@ -567,6 +583,11 @@ export const useGameStore = create<GameState & {
         ...state.stats,
         bestDay: Math.max(state.stats.bestDay, state.day)
       }
+    });
+    
+    console.log(`GAME END - Estado final establecido:`, {
+      gameOver: true,
+      gameEnding: ending
     });
   },
   
@@ -580,7 +601,7 @@ export const useGameStore = create<GameState & {
     }
     
     let newHour = state.hour;
-    let newMinute = state.minute + 1;
+    let newMinute = state.minute + 1; // Avanzar 1 minuto cada vez (cada 0.128 segundos reales)
     let newDay = state.day;
     
     if (newMinute >= 60) {
@@ -592,15 +613,31 @@ export const useGameStore = create<GameState & {
       newHour = 0;
       newDay += 1;
       
-      // Mensaje de nuevo día
-      const message = ironicMessages.milestones[Math.min(newDay - 1, ironicMessages.milestones.length - 1)];
-      set({ currentMessage: message, showMessage: true });
+      // Resetear bufanda al empezar nuevo día SOLO si es de día (6:00-20:59)
+      // Si es de noche (21:00-05:59), mantener scarfUsedTonight para que no vuelva el frío
+      if (newHour >= 6 && newHour < 21) {
+        set({ scarfUsedTonight: false });
+        console.log(`NUEVO DÍA - Reseteando scarfUsedTonight para día ${newDay} (es de día)`);
+      } else {
+        console.log(`NUEVO DÍA - Manteniendo scarfUsedTonight para día ${newDay} (es de noche)`);
+      }
+      
+      // Mostrar animación de transición de día
+      get().showDayTransitionAnimation(newDay);
+      
+      // Mensaje de nuevo día del osito (se mostrará después de la animación)
+      setTimeout(() => {
+        const { BEAR_MESSAGES } = require('@/config/characters');
+        const randomMessage = BEAR_MESSAGES.NEW_DAY[Math.floor(Math.random() * BEAR_MESSAGES.NEW_DAY.length)];
+        set({ currentMessage: randomMessage, showMessage: true });
+      }, 2500); // 2.5 segundos después de que empiece la animación
     }
     
     // Verificar si es de noche (21:00-05:00) para aplicar frío
     const isNight = newHour >= 21 || newHour < 5;
-    const wasDay = state.hour >= 5 && state.hour < 21;
+    const wasDay = state.hour >= 6 && state.hour < 21;
     
+    console.log(`TIME UPDATE - Día: ${state.day} → ${newDay}, Hora: ${state.hour} → ${newHour}, Minuto: ${state.minute} → ${newMinute}`);
     set({ 
       hour: newHour, 
       minute: newMinute, 
@@ -613,26 +650,17 @@ export const useGameStore = create<GameState & {
       get().saveGame();
     }
     
-    // Si acaba de hacerse de noche y no tiene bufanda, aplicar frío
-    if (isNight && wasDay && !state.isCold) {
-      const hasScarf = state.inventory.some(item => item.name === 'Bufanda' && item.quantity > 0);
-      if (!hasScarf) {
-        set({ isCold: true });
-        
-        // Si estamos en el tutorial, dar bufanda automáticamente
-        if (state.showTutorial) {
-          get().addToInventory({
-            id: 'tutorial_scarf',
-            name: 'Bufanda',
-            type: 'clothing',
-            image: '/images/bufanda.png',
-            quantity: 1
-          });
-        }
-        
-        const { BEAR_MESSAGES } = require('@/config/characters');
-        get().showBearGuide(BEAR_MESSAGES.TUTORIAL_COLD_NIGHT);
-      }
+    // Si es de noche, aplicar frío (a menos que ya haya usado bufanda)
+    if (isNight && !state.isCold && !state.scarfUsedTonight) {
+      console.log(`FRÍO APLICADO - Es de noche, hora: ${newHour}`);
+      set({ isCold: true });
+      set({ currentMessage: "¡Hace mucho frío! Usa una bufanda para calentarte.", showMessage: true });
+    }
+    
+    // Si es de noche y ya usó bufanda, no aplicar frío de nuevo
+    if (isNight && state.scarfUsedTonight) {
+      console.log(`FRÍO PREVENIDO - Es de noche pero ya usó bufanda, hora: ${newHour}`);
+      // No hacer nada, el frío ya está controlado
     }
     
     // Generar cartas cada hora
@@ -645,10 +673,13 @@ export const useGameStore = create<GameState & {
     let adjustedSpawnRate = gameConfig.zombieSpawnRate * currentDifficulty;
     let canSpawnByTime = false;
     
+    // Verificar si tiene arma para protección early-game
+    const hasWeapon = state.inventory.some(item => item.type === ItemType.WEAPON && item.quantity > 0);
+    
     // Lógica de spawn por días:
     if (newDay === 1) {
-      // Día 1: Sin zombies
-      adjustedSpawnRate = 0;
+      // Día 1: Solo zombies por la noche (21:00-05:00)
+      canSpawnByTime = (newHour >= 21 || newHour < 5);
     } else if (newDay >= 2 && newDay <= 4) {
       // Días 2-4: Solo zombies por la noche (21:00-05:00)
       canSpawnByTime = (newHour >= 21 || newHour < 5);
@@ -656,93 +687,55 @@ export const useGameStore = create<GameState & {
       // Día 5: Zombies día y noche + mensaje del oso
       canSpawnByTime = true;
       // Mostrar mensaje del oso una sola vez
-      if (newHour === 8 && newMinute === 0 && !state.skipTutorial) { // Solo a las 8:00 del día 5
+      if (newHour === 8 && newMinute === 0) { // Solo a las 8:00 del día 5
         const msg = "Mira, los zombis son más listos que tú y ahora han aprendido a ir de día también... suerte.";
-        get().showBearGuide(msg);
+        // get().showBearGuide(msg);
       }
     } else {
       // Día 6+: Zombies día y noche
       canSpawnByTime = true;
     }
     
+    // Protección early-game: no spawnear zombies si no tiene arma en días 2-4
+    if (newDay >= 2 && newDay <= 4 && !hasWeapon) {
+      adjustedSpawnRate = 0;
+    }
+    
     const hoursSinceLastSpawn = newHour - state.lastZombieSpawnHour;
     const canSpawnByCooldown = hoursSinceLastSpawn >= gameConfig.zombieSpawnCooldown;
     const hasSpaceForZombie = state.zombies.length < gameConfig.maxZombiesAtOnce;
     
+    // Debug: mostrar información de spawn
+    if (newHour % 2 === 0 && newMinute === 0) { // Cada 2 horas
+      console.log(`ZOMBIE DEBUG - Día: ${newDay}, Hora: ${newHour}, canSpawnByTime: ${canSpawnByTime}, canSpawnByCooldown: ${canSpawnByCooldown}, hasSpaceForZombie: ${hasSpaceForZombie}, adjustedSpawnRate: ${adjustedSpawnRate}, zombies: ${state.zombies.length}`);
+    }
+    
     if (canSpawnByTime && canSpawnByCooldown && hasSpaceForZombie && Math.random() < adjustedSpawnRate) {
+      console.log(`ZOMBIE SPAWNED! Día: ${newDay}, Hora: ${newHour}`);
       get().spawnZombie();
       // Actualizar la hora del último spawn
       set({ lastZombieSpawnHour: newHour });
     }
     
-    // Mover zombis
-    get().moveZombies();
+    // Los zombies se mueven en su propio timer (cada 15 segundos)
     
-    // Verificar condiciones especiales de noche
-    if (newHour >= 21 || newHour < 5) {
-      // Es de noche - verificar si tiene bufanda
-      const hasScarf = state.inventory.some(item => item.name === 'Bufanda' && item.quantity > 0);
-      if (!hasScarf && !state.isCold) {
-        // No tiene bufanda y no está ya con frío
-        set({ isCold: true });
-        
-        // Si es tutorial, mostrar mensaje de Peluso
-        if (state.showTutorial && state.tutorialPhase === 'zombie_kill') {
-          const { BEAR_MESSAGES } = require('@/config/characters');
-          get().showBearGuide(BEAR_MESSAGES.TUTORIAL_COLD_NIGHT);
-        } else {
-          set({ currentMessage: "¡Hace mucho frío! Necesitas una bufanda para sobrevivir la noche.", showMessage: true });
-        }
-      }
-    } else {
-      // Es de día - quitar frío si lo tiene
-      if (state.isCold) {
-        set({ isCold: false });
-        set({ currentMessage: "¡El sol calienta! Ya no tienes frío.", showMessage: true });
-      }
+    // Lógica del frío - solo quitar frío cuando es de día
+    if (!isNight && state.isCold) {
+      // Es de día - quitar frío
+      console.log(`FRÍO QUITADO - Hora: ${newHour}, es de día`);
+      set({ isCold: false });
+      set({ currentMessage: "¡El sol calienta! Ya no tienes frío.", showMessage: true });
     }
   },
   
-  // Generar casa bloqueada para tutorial
+  // Generar casa bloqueada para tutorial (ELIMINADO)
   generateBlockedHouseForTutorial: () => {
-    const houseImages = ['casa1.png', 'casa2.png', 'casa3.png', 'casa4.png', 'casa5.png', 'casa6.png'];
-    const randomHouse = houseImages[Math.floor(Math.random() * houseImages.length)];
-    
-    const blockedHouseCard = {
-      id: `tutorial_blocked_${Date.now()}`,
-      type: CardType.HOUSE,
-      name: 'Casa Bloqueada',
-      emoji: '🏠',
-      image: '/images/puertabloqueada.png',
-      description: 'Casa bloqueada que requiere múltiples clicks',
-      effect: { type: 'blocked_house', value: 0 },
-      rarity: 'common' as any,
-      houseImage: `/images/${randomHouse}`,
-      isBlocked: true,
-      clicksToUnlock: 10,
-      currentClicks: 0,
-      isRevealed: false,
-      isBlockedHouse: true
-    };
-    
-    set({ currentCards: [blockedHouseCard] });
-    
-    // Mostrar tutorial de casa bloqueada
-    setTimeout(() => {
-      const { BEAR_MESSAGES } = require('@/config/characters');
-      get().showBearGuide(BEAR_MESSAGES.TUTORIAL_BLOCKED_HOUSE);
-    }, 500);
+    // Tutorial eliminado - función vacía
   },
   
   // Generar cartas
   generateCards: () => {
     const state = get();
-    
-    // Si estamos en el tutorial de casa bloqueada, no generar cartas nuevas
-    if (state.showTutorial && state.tutorialPhase === 'blocked_house_modal') {
-      console.log('TUTORIAL: No generando cartas nuevas, tutorial de casa bloqueada activo');
-      return;
-    }
     
     const cards: Card[] = [];
     
@@ -752,21 +745,37 @@ export const useGameStore = create<GameState & {
       let hiddenItemType: CardType;
       let isBlockedHouse = false;
       
-      // Determinar el item oculto (con porcentajes balanceados)
-      if (random < 0.3) {
-        // 30% comida/agua
-        hiddenItemType = Math.random() < 0.5 ? CardType.FOOD : CardType.DRINK;
-      } else if (random < 0.4) {
-        // 10% útiles (medicina, ropa, arma)
-        const usefulTypes = [CardType.MEDICINE, CardType.CLOTHING, CardType.WEAPON];
-        hiddenItemType = usefulTypes[Math.floor(Math.random() * usefulTypes.length)];
-      } else {
-        // 60% basura
-        hiddenItemType = CardType.JUNK;
-      }
-      
       // Determinar si esta casa será bloqueada (20% probabilidad balanceada)
       isBlockedHouse = Math.random() < 0.2;
+      
+      // Determinar el item oculto con diferentes probabilidades según si es bloqueada
+      if (isBlockedHouse) {
+        // Casas bloqueadas: mayor probabilidad de items útiles
+        if (random < 0.5) {
+          // 50% útiles (medicina, ropa, arma) - ¡Mucho mejor!
+          const usefulTypes = [CardType.MEDICINE, CardType.CLOTHING, CardType.WEAPON];
+          hiddenItemType = usefulTypes[Math.floor(Math.random() * usefulTypes.length)];
+        } else if (random < 0.7) {
+          // 20% comida/agua
+          hiddenItemType = Math.random() < 0.5 ? CardType.FOOD : CardType.DRINK;
+        } else {
+          // 30% basura (menos basura que casas normales)
+          hiddenItemType = CardType.JUNK;
+        }
+      } else {
+        // Casas normales: probabilidades originales
+        if (random < 0.3) {
+          // 30% comida/agua
+          hiddenItemType = Math.random() < 0.5 ? CardType.FOOD : CardType.DRINK;
+        } else if (random < 0.4) {
+          // 10% útiles (medicina, ropa, arma)
+          const usefulTypes = [CardType.MEDICINE, CardType.CLOTHING, CardType.WEAPON];
+          hiddenItemType = usefulTypes[Math.floor(Math.random() * usefulTypes.length)];
+        } else {
+          // 60% basura
+          hiddenItemType = CardType.JUNK;
+        }
+      }
       
       // Siempre usar casa normal, pero marcar si será bloqueada
       const typeData = cardData[CardType.HOUSE];
@@ -816,132 +825,155 @@ export const useGameStore = create<GameState & {
     if (!card || !card.isBlockedHouse) {
       return;
     }
-    // Pausar juego mientras está la puerta
+    
+    // Limpiar timeout anterior si existe
+    if (state.blockedHouseTimeout) {
+      clearTimeout(state.blockedHouseTimeout);
+    }
+    
+    // Abrir puerta bloqueada (sin pausar el juego)
     set({
       showBlockedHouseModal: true,
       blockedHouseCardId: cardId,
-      blockedHouseClicks: card.currentClicks || 0,
-      isPaused: true
+      blockedHouseClicks: card.currentClicks || 0
     });
     
-    // Si es tutorial, marcar la fase
-    if (state.showTutorial && state.tutorialPhase === 'blocked_house_message') {
-      set({ tutorialPhase: 'blocked_house_modal' });
-    }
+    // Timeout para cerrar automáticamente después de 15 segundos
+    const timeout = setTimeout(() => {
+      const currentState = get();
+      if (currentState.showBlockedHouseModal && currentState.blockedHouseCardId === cardId) {
+        console.log(`BLOCKED HOUSE TIMEOUT - Cerrando puerta bloqueada sin recompensa`);
+        get().closeBlockedHouseModal();
+        set({ 
+          currentMessage: "La puerta se cerró sola... ¡Demasiado lento!", 
+          showMessage: true 
+        });
+      }
+    }, 15000); // 15 segundos
+    
+    set({ blockedHouseTimeout: timeout });
   },
   
   // Cerrar modal de casa bloqueada
   closeBlockedHouseModal: () => {
+    const state = get();
+    
+    // Limpiar timeout si existe
+    if (state.blockedHouseTimeout) {
+      clearTimeout(state.blockedHouseTimeout);
+    }
+    
     set({
       showBlockedHouseModal: false,
       blockedHouseCardId: null,
       blockedHouseClicks: 0,
-      isPaused: false
+      blockedHouseTimeout: null
     });
   },
 
   // Hacer clic en casa bloqueada
   clickBlockedHouse: (cardId: string) => {
     const state = get();
-    const card = state.currentCards.find(c => c.id === cardId);
     
-    if (!card || !card.isBlockedHouse) {
+    console.log(`CLICK BLOCKED HOUSE - CardId: ${cardId}, Estado actual:`, {
+      currentCards: state.currentCards.length,
+      blockedHouseClicks: state.blockedHouseClicks,
+      showBlockedHouseModal: state.showBlockedHouseModal
+    });
+    
+    // Verificar si el modal está cerrado - si es así, no procesar más clics
+    if (!state.showBlockedHouseModal) {
+      console.log(`CLICK BLOCKED HOUSE - Modal cerrado, ignorando clic`);
       return;
     }
     
-    const newClicks = (card.currentClicks || 0) + 1;
+    // Si no hay carta en currentCards, usar el estado del modal
+    let card = state.currentCards.find(c => c.id === cardId);
+    let newClicks = state.blockedHouseClicks + 1;
     
-    // Actualizar el número de clics en la carta y en el modal
+    if (!card || !card.isBlockedHouse) {
+      // Si la carta no está en currentCards, usar el estado del modal
+      console.log(`CLICK BLOCKED HOUSE - Carta no encontrada en currentCards, usando estado del modal`);
+      console.log(`CLICK BLOCKED HOUSE - Clics del modal: ${state.blockedHouseClicks} → ${newClicks}`);
+    } else {
+      // Si la carta existe, usar sus clics
+      newClicks = (card.currentClicks || 0) + 1;
+      console.log(`CLICK BLOCKED HOUSE - Clics de la carta: ${card.currentClicks || 0} → ${newClicks}, clicksToUnlock: ${card.clicksToUnlock}`);
+      
+      // Actualizar el número de clics en la carta
+      set({
+        currentCards: state.currentCards.map(c => 
+          c.id === cardId 
+            ? { ...c, currentClicks: newClicks }
+            : c
+        )
+      });
+    }
+    
+    // Actualizar el estado del modal
     set({
-      currentCards: state.currentCards.map(c => 
-        c.id === cardId 
-          ? { ...c, currentClicks: newClicks }
-          : c
-      ),
       blockedHouseClicks: newClicks
     });
     
     // Si se alcanzó el número de clics necesarios, desbloquear
-    if (newClicks >= (card.clicksToUnlock || 10)) {
-      // Cerrar el modal de puerta bloqueada
-      get().closeBlockedHouseModal();
+    const clicksNeeded = card?.clicksToUnlock || 10;
+    console.log(`CLICK BLOCKED HOUSE - Verificando desbloqueo: ${newClicks} >= ${clicksNeeded} = ${newClicks >= clicksNeeded}`);
+    
+    if (newClicks >= clicksNeeded) {
+      console.log(`CLICK BLOCKED HOUSE - ¡PUERTA DESBLOQUEADA! Ejecutando lógica de recompensa...`);
       
-      // Si es el tutorial de casa bloqueada, manejar el flujo paso a paso
-      if (state.showTutorial && state.tutorialPhase === 'blocked_house_modal') {
-        console.log('TUTORIAL: Casa desbloqueada, cambiando a zombie_warning');
-        set({ tutorialPhase: 'zombie_warning' });
-        get().hideMessage();
-        
-        // NO añadir bate aquí - se añadirá cuando aparezca el zombie
-        // NO reanudar el juego aquí - se reanudará cuando se use el bate
-      } else {
-        // Si no es tutorial, reanudar completamente
-        get().resumeGame();
+      // Limpiar timeout antes de cerrar
+      if (state.blockedHouseTimeout) {
+        clearTimeout(state.blockedHouseTimeout);
       }
       
-      // Cerrar el modal y limpiar la carta
+      // Cerrar el modal y limpiar la carta PRIMERO
       set({
         currentCards: state.currentCards.filter(c => c.id !== cardId),
         showBlockedHouseModal: false,
         blockedHouseCardId: null,
-        blockedHouseClicks: 0
+        blockedHouseClicks: 0,
+        blockedHouseTimeout: null
       });
       
-      // Tras desbloquear, aparecer un zombi en posición 3 para dar más tiempo
-      const zombie: Zombie = {
-        id: `zombie_${Date.now()}`,
-        type: ZombieType.NORMAL,
-        position: 3,
-        speed: 1,
-        health: 1,
-        isMoving: true
-      };
-      set({ zombies: [...state.zombies, zombie] });
-
-      // Dar bate automáticamente cuando aparece el zombie
-      console.log('TUTORIAL: Dando bate automáticamente al aparecer zombie');
-      get().addToInventory({
-        id: 'tutorial_bat',
-        name: 'Bate',
-        type: 'weapon',
-        image: '/images/bat.png',
-        quantity: 1
-      });
-
-      // Efecto visual: bate volando del oso al inventario
-      get().triggerFlyingItem('Bate');
-
-      // Mostrar mensaje de Peluso sobre el zombie (pausar el juego)
-      const { BEAR_MESSAGES } = require('@/config/characters');
-      console.log('TUTORIAL: Mostrando mensaje de zombie:', BEAR_MESSAGES.ZOMBIE_APPEAR);
-      get().showBearGuide(BEAR_MESSAGES.ZOMBIE_APPEAR);
-
-      // Guardar el item para mostrarlo DESPUÉS de usar el bate
-      const hiddenItemType = card.hiddenItemType;
-      if (hiddenItemType) {
-        const typeData = cardData[hiddenItemType as keyof typeof cardData];
+      // PUERTA BLOQUEADA: SIEMPRE dar un item útil (sin probabilidades)
+      console.log(`CASA BLOQUEADA - Iniciando lógica de item útil garantizado`);
+      
+      const usefulItemTypes = [CardType.FOOD, CardType.DRINK, CardType.MEDICINE, CardType.CLOTHING, CardType.WEAPON];
+      console.log(`CASA BLOQUEADA - Tipos útiles disponibles:`, usefulItemTypes);
+      
+      const randomUsefulType = usefulItemTypes[Math.floor(Math.random() * usefulItemTypes.length)];
+      console.log(`CASA BLOQUEADA - Tipo seleccionado: ${randomUsefulType}`);
+      
+      const typeData = cardData[randomUsefulType as keyof typeof cardData];
+      console.log(`CASA BLOQUEADA - Datos del tipo:`, typeData);
+      
+      if (typeData && typeData.length > 0) {
         const randomItem = typeData[Math.floor(Math.random() * typeData.length)];
         
-        // Añadir item al inventario (pero NO mostrar el modal todavía)
+        console.log(`CASA BLOQUEADA - Item útil garantizado: ${randomItem.name} (${randomUsefulType})`);
+        
+        // Añadir el item al inventario
         get().addToInventory({
-          id: `${hiddenItemType}_${Date.now()}`,
-          type: hiddenItemType as any,
+          id: `${randomUsefulType}_${Date.now()}`,
+          type: randomUsefulType as any,
           name: randomItem.name,
           emoji: randomItem.emoji,
-          image: (randomItem as any).image,
+          image: (randomItem as any).image || randomItem.emoji,
           quantity: 1,
-          description: `Item encontrado en casa bloqueada`
+          description: (randomItem as any).description || `Item útil encontrado en casa bloqueada`
         });
         
-        // Guardar el item para mostrarlo después del bate
-        set({ 
+        // Mostrar el modal de item encontrado
+        set({
+          showItemFoundModal: true,
           foundItemName: randomItem.name,
-          foundItemImage: (randomItem as any).image || '',
-          showItemFoundModal: false // NO mostrar todavía
+          foundItemImage: (randomItem as any).image || randomItem.emoji
         });
+      } else {
+        console.error(`CASA BLOQUEADA - ERROR: No se encontraron datos para el tipo ${randomUsefulType}`);
       }
 
-      // NO generar cartas aquí - se generarán cuando se use el bate
     }
     // No mostrar mensaje de progreso - los mensajes se muestran en el modal
   },
@@ -949,6 +981,7 @@ export const useGameStore = create<GameState & {
   // Seleccionar carta
   selectCard: (cardId: string) => {
     const state = get();
+    
     const card = state.currentCards.find(c => c.id === cardId);
     
     if (!card) return;
@@ -991,37 +1024,7 @@ export const useGameStore = create<GameState & {
       get().setInfected(false);
     } else if (card.effect.type === 'cold') {
       get().setCold(false);
-      
-      // Consumir bufanda (usos limitados)
-      const scarfItem = state.inventory.find(i => i.name === 'Bufanda');
-      if (scarfItem) {
-        const newUses = (scarfItem.uses || 0) + 1;
-        const maxUses = scarfItem.maxUses || 3;
-        
-        if (newUses >= maxUses) {
-          // Bufanda se rompe
-          set({
-            inventory: state.inventory.filter(i => i.id !== scarfItem.id)
-          });
-          set({ 
-            currentMessage: "¡Tu bufanda se rompió! Era muy vieja...", 
-            showMessage: true 
-          });
-        } else {
-          // Actualizar usos
-          set({
-            inventory: state.inventory.map(i => 
-              i.id === scarfItem.id 
-                ? { ...i, uses: newUses }
-                : i
-            )
-          });
-          set({ 
-            currentMessage: `Bufanda usada (${newUses}/${maxUses}). Se está desgastando...`, 
-            showMessage: true 
-          });
-        }
-      }
+      // Bufanda se usa normalmente - se gasta 1 cantidad
     } else if (card.effect.type === 'zombie') {
       get().addToInventory({
         id: `bate_${Date.now()}`,
@@ -1038,36 +1041,6 @@ export const useGameStore = create<GameState & {
         // Abrir modal de puerta bloqueada
         get().openBlockedHouseModal(cardId);
         return; // No continuar con el resto de la lógica
-      }
-      
-      // Si estamos en el tutorial de casas, mostrar mensaje de Peluso
-      if (state.showTutorial && state.currentMessage.includes('Entra en las casas')) {
-        get().hideMessage();
-        
-        // Cambiar fase del tutorial
-        set({ tutorialPhase: 'blocked_house_message' });
-        
-        // Convertir la casa actual en una casa bloqueada PRIMERO
-        const updatedCards = state.currentCards.map(c => 
-          c.id === cardId 
-            ? {
-                ...c,
-                image: '/images/puertabloqueada.png',
-                effect: { type: 'blocked_house', value: 0 },
-                isBlocked: true,
-                clicksToUnlock: 10,
-                currentClicks: 0,
-                isBlockedHouse: true
-              }
-            : c
-        );
-        set({ currentCards: updatedCards });
-        
-        // Mostrar tutorial de casa bloqueada INMEDIATAMENTE
-        const { BEAR_MESSAGES } = require('@/config/characters');
-        get().showBearGuide(BEAR_MESSAGES.TUTORIAL_BLOCKED_HOUSE);
-        
-        return; // No continuar con la lógica normal de casa
       }
       
       // Casa normal - usar el item oculto
@@ -1118,7 +1091,7 @@ export const useGameStore = create<GameState & {
                 set({ 
                   currentMessage: funnyMsg, 
                   showMessage: true,
-                  shownMessages: new Set([...state.shownMessages, messageKey])
+                  shownMessages: new Set(Array.from(state.shownMessages).concat(messageKey))
                 });
               }
             }
@@ -1132,7 +1105,7 @@ export const useGameStore = create<GameState & {
         set({ 
           currentMessage: message, 
           showMessage: true,
-          shownMessages: new Set([...state.shownMessages, junkMessageKey])
+          shownMessages: new Set(Array.from(state.shownMessages).concat(junkMessageKey))
         });
       }
     }
@@ -1153,10 +1126,13 @@ export const useGameStore = create<GameState & {
       id: `zombie_${Date.now()}`,
       type: ZombieType.NORMAL,
       position: 5, // Empieza en la última casilla (5)
-      speed: baseSpeed,
+      speed: 1, // Siempre se mueve 1 posición por turno
       health: 1,
       isMoving: true
     };
+    
+    console.log(`SPAWN ZOMBIE - Creando zombie:`, zombie);
+    console.log(`SPAWN ZOMBIE - Zombies antes: ${state.zombies.length}, después: ${state.zombies.length + 1}`);
     
     set({ zombies: [...state.zombies, zombie] });
   },
@@ -1166,20 +1142,26 @@ export const useGameStore = create<GameState & {
     const state = get();
     let updatedZombies = state.zombies.map(zombie => ({
       ...zombie,
-      position: Math.max(0, zombie.position - zombie.speed)
+      position: Math.max(0, zombie.position - 1) // Mover exactamente 1 posición cada turno
     }));
+    
+    // Debug: mostrar movimiento de zombis
+    if (state.zombies.length > 0) {
+      console.log(`ZOMBIE MOVE - Zombies: ${state.zombies.length}, Positions: ${state.zombies.map(z => z.position).join(', ')}`);
+    }
     
     // Verificar si algún zombi llegó al jugador
     const zombiesAtPlayer = updatedZombies.filter(z => z.position === 0);
     if (zombiesAtPlayer.length > 0) {
+      console.log(`ZOMBIE INFECTION! ${zombiesAtPlayer.length} zombies llegaron al jugador`);
       get().setInfected(true);
       
       // Eliminar los zombies que llegaron al jugador después de contagiar
       updatedZombies = updatedZombies.filter(z => z.position !== 0);
       
-      // Mensaje de Peluso cuando te contagias
-      const msg = "¡Por los pelos! Si te contagia más vale que tengas una pastillita, sino empezará tu cuenta atrás...";
-      get().showBearGuide(msg);
+      // Mensaje de Peluso cuando te contagias - ELIMINADO
+      // const msg = "¡Por los pelos! Si te contagia más vale que tengas una pastillita, sino empezará tu cuenta atrás...";
+      // get().showBearGuide(msg);
     }
 
     
@@ -1189,45 +1171,57 @@ export const useGameStore = create<GameState & {
   // Matar zombi
   killZombie: (zombieId: string) => {
     const state = get();
-    const updatedZombies = state.zombies.filter(z => z.id !== zombieId);
     const killedZombie = state.zombies.find(z => z.id === zombieId);
     
     if (killedZombie) {
+      console.log(`ZOMBIE KILLED - Zombie ${zombieId} eliminado. Contador antes: ${state.stats.zombiesKilled}, después: ${state.stats.zombiesKilled + 1}`);
+      
+      // Eliminar zombie y actualizar contador
       set({ 
-        zombies: updatedZombies,
+        zombies: state.zombies.filter(z => z.id !== zombieId),
         stats: {
           ...state.stats,
           zombiesKilled: state.stats.zombiesKilled + 1
+        },
+        zombieDeathEffect: {
+          zombieId: zombieId,
+          position: killedZombie.position,
+          isActive: true
         }
       });
       
-      // Mensaje de Peluso cuando matas un zombi (solo si NO es tutorial)
-      const currentState = get();
-      if (!currentState.showTutorial) {
-        const msg = "¡Bien! Un zombi menos. La población mundial te lo agradece... si es que queda alguien.";
-        get().showBearGuide(msg);
-      }
+      // Desactivar el efecto después de 2 segundos
+      setTimeout(() => {
+        set({ zombieDeathEffect: null });
+      }, 2000);
+      
+      console.log(`ZOMBIE KILLED - Contador actualizado: ${state.stats.zombiesKilled + 1} zombies muertos`);
+    } else {
+      console.log(`ZOMBIE KILLED - ERROR: Zombie ${zombieId} no encontrado`);
     }
   },
   
   // Añadir al inventario
   addToInventory: (item: InventoryItem) => {
     const state = get();
-    const existingItem = state.inventory.find(i => i.name === item.name);
     
-    if (existingItem) {
-      existingItem.quantity += item.quantity;
+    const existingItemIndex = state.inventory.findIndex(i => i.name === item.name);
+    
+    let newInventory;
+    
+    if (existingItemIndex !== -1) {
+      // Item existe, incrementar cantidad
+      newInventory = [...state.inventory];
+      newInventory[existingItemIndex] = {
+        ...newInventory[existingItemIndex],
+        quantity: newInventory[existingItemIndex].quantity + item.quantity
+      };
     } else {
-      // Configurar usos limitados para bufanda
+      // Item nuevo, añadirlo
       const newItem = { ...item };
-      if (item.name === 'Bufanda') {
-        newItem.uses = 0;
-        newItem.maxUses = 3;
-      }
-      state.inventory.push(newItem);
+      newInventory = [...state.inventory, newItem];
     }
-    
-    set({ inventory: [...state.inventory] });
+    set({ inventory: newInventory });
     
     // Guardar automáticamente después de añadir al inventario
     get().saveGame();
@@ -1236,97 +1230,102 @@ export const useGameStore = create<GameState & {
   // Usar item
   useItem: (itemId: string) => {
     const state = get();
+    
     const item = state.inventory.find(i => i.id === itemId);
     
     if (!item || item.quantity <= 0) return;
     
+    // Validaciones para items innecesarios
+    if (item.type === ItemType.MEDICINE && !state.isInfected && state.health >= 95) {
+      // No está contagiado y tiene muy buena salud - mensaje irónico
+      const { BEAR_MESSAGES } = require('@/config/characters');
+      get().displayMessage(BEAR_MESSAGES.UNNECESSARY_ITEMS.MEDICINE_NOT_INFECTED);
+      return; // No usar el item
+    }
+    
+    // La bufanda se puede usar cuando tienes frío, no se bloquea cuando no tienes frío
+    // La lógica de frío se maneja en el timer, no aquí
+    
     // Aplicar efecto del item
     if (item.type === ItemType.WEAPON) {
-      // Usar bate para matar zombi
-      const zombie = state.zombies[0]; // Zombi más cercano
-      if (zombie) {
-        // Efecto visual: bate volando del inventario al zombie
-        get().triggerFlyingItem('Bate');
+      // Usar bate - verificar si hay zombies para matar
+      const currentState = get();
+      if (currentState.zombies.length > 0) {
+        // Hay zombies - matar el primero y mostrar efectos
+        const zombieToKill = currentState.zombies[0];
+        console.log(`BATE USADO - Matando zombie: ${zombieToKill.id}`);
         
-        // Efecto visual: zombie siendo eliminado (sacado fuera de la ventana)
+        // Remover zombie del campo y actualizar contador
+        const updatedZombies = currentState.zombies.filter(z => z.id !== zombieToKill.id);
+        set({ 
+          zombies: updatedZombies,
+          stats: {
+            ...currentState.stats,
+            zombiesKilled: currentState.stats.zombiesKilled + 1
+          }
+        });
+        
+        // Mostrar efectos visuales - animación del bate al zombie
+        get().triggerFlyingItem('Bate');
         get().triggerShake();
         
-        // Matar al zombie
-        get().killZombie(zombie.id);
+        // Efecto de muerte del zombie
+        set({
+          zombieDeathEffect: {
+            zombieId: zombieToKill.id,
+            position: zombieToKill.position,
+            isActive: true
+          }
+        });
         
-        // Si está en tutorial, manejar la secuencia completa
-        if (state.showTutorial && state.tutorialPhase === 'zombie_warning') {
-          console.log('TUTORIAL: Usando bate, iniciando secuencia de noche');
-          get().hideMessage();
-          
-          // Cambiar a noche para activar el frío
-          set({ 
-            hour: 22, // 22:00 (noche)
-            isNight: true,
-            tutorialPhase: 'cold_night'
-          });
-          
-          // Aplicar frío al personaje
-          console.log('TUTORIAL: Aplicando frío al personaje');
-          get().setCold(true);
-          
-          // Dar bufanda al inventario
-          console.log('TUTORIAL: Añadiendo bufanda al inventario');
-          get().addToInventory({
-            id: 'tutorial_scarf',
-            name: 'Bufanda',
-            type: ItemType.CLOTHING,
-            emoji: '🧣',
-            image: '/images/scarf.png',
-            quantity: 1,
-            description: 'Bufanda para protegerse del frío'
-          });
-          
-          // Efecto visual: bufanda volando del oso al inventario
-          get().triggerFlyingItem('Bufanda', 'from_bear');
-          
-          // Mostrar mensaje de Peluso sobre el frío
-          setTimeout(() => {
-            const { BEAR_MESSAGES } = require('@/config/characters');
-            console.log('TUTORIAL: Mostrando mensaje de frío:', BEAR_MESSAGES.TUTORIAL_COLD_NIGHT_FINAL);
-            get().showBearGuide(BEAR_MESSAGES.TUTORIAL_COLD_NIGHT_FINAL);
-          }, 1000);
-        }
+        // Desactivar el efecto después de 2 segundos
+        setTimeout(() => {
+          set({ zombieDeathEffect: null });
+        }, 2000);
+        
+        // Mensaje de éxito
+        get().displayMessage("¡Zombie eliminado con el bate!");
+        
+        console.log(`ZOMBIE ELIMINADO - Zombies restantes: ${updatedZombies.length}, Contador: ${currentState.stats.zombiesKilled + 1}`);
+      } else {
+        // No hay zombies - mostrar mensaje de que no hay nada que atacar
+        get().displayMessage("No hay zombies para atacar con el bate.");
+        return; // No consumir el bate si no hay zombies
       }
+      
+      // Consumir el bate del inventario
+      const updatedInventory = state.inventory.map(invItem => 
+        invItem.id === itemId 
+          ? { ...invItem, quantity: Math.max(0, invItem.quantity - 1) }
+          : invItem
+      ).filter(invItem => invItem.quantity > 0);
+      
+      set({ inventory: updatedInventory });
+      console.log(`BATE USADO - Cantidad restante: ${updatedInventory.find(i => i.name === 'Bate')?.quantity || 0}`);
     } else {
       // Activar efecto de vuelo para otros items (comida, bebida, medicina, ropa)
       get().triggerFlyingItem(item.name);
     }
     
     if (item.type === ItemType.FOOD) {
-      // Comer comida - restaurar hambre directamente (sin dificultad)
+      // Comer comida - restaurar hambre y bajar un poco la sed (realista)
       const state = get();
       const newHunger = Math.min(100, state.hunger + 30);
-      set({ hunger: newHunger });
+      const newThirst = Math.max(0, state.thirst - 10); // -10% sed por comer
+      set({ hunger: newHunger, thirst: newThirst });
       get().triggerCharacterEffect('eating');
       
-      // Si es el tutorial de comida y usa la manzana, continuar con tutorial de casas
-      if (item.name === 'Manzana' && state.showTutorial && state.currentMessage.includes('Toma, comida')) {
-        get().hideMessage();
-        // Continuar con el tutorial de casas
-        setTimeout(() => {
-          const { BEAR_MESSAGES } = require('@/config/characters');
-          get().showBearGuide(BEAR_MESSAGES.TIP_HOUSES);
-          
-          // Después de mostrar el mensaje, generar la casa bloqueada para el tutorial
-          setTimeout(() => {
-            console.log('TUTORIAL: Generando casa bloqueada después del mensaje TIP_HOUSES');
-            get().generateBlockedHouseForTutorial();
-            // Establecer la fase del tutorial para casa bloqueada
-            set({ tutorialPhase: 'blocked_house_modal' });
-          }, 1000);
-        }, 500);
-      }
+      console.log(`COMIDA USADA - Hambre: +30 (${state.hunger} → ${newHunger}), Sed: -10 (${state.thirst} → ${newThirst})`);
+      
+      // Comer manzana - sin lógica de tutorial
     } else if (item.type === ItemType.DRINK) {
-      // Beber - restaurar sed directamente (sin dificultad)
+      // Beber - restaurar sed y bajar un poco la hambre (realista)
       const state = get();
       const newThirst = Math.min(100, state.thirst + 30);
-      set({ thirst: newThirst });
+      const newHunger = Math.max(0, state.hunger - 5); // -5% hambre por beber (menos que la comida da sed)
+      set({ thirst: newThirst, hunger: newHunger });
+      
+      console.log(`BEBIDA USADA - Sed: +30 (${state.thirst} → ${newThirst}), Hambre: -5 (${state.hunger} → ${newHunger})`);
       get().triggerCharacterEffect('drinking');
     } else if (item.type === ItemType.MEDICINE) {
       // Tomar medicina - curar infección
@@ -1336,31 +1335,37 @@ export const useGameStore = create<GameState & {
       get().updateHealth(20);
       get().triggerCharacterEffect('healing');
     } else if (item.type === ItemType.CLOTHING) {
-      // Usar ropa - curar frío
+      // Usar bufanda - curar frío y gastar 1 bufanda
+      console.log(`BUFANDA USADA - isCold: ${state.isCold}, hour: ${state.hour}, scarfUsedTonight: ${state.scarfUsedTonight}`);
       if (state.isCold) {
-        set({ isCold: false });
-      }
-      
-      // Si es el tutorial de bufanda y usa la bufanda, continuar con mensaje final
-      if (item.name === 'Bufanda' && state.showTutorial && state.tutorialPhase === 'cold_night') {
-        console.log('TUTORIAL: Usando bufanda, iniciando mensaje final');
-        get().hideMessage();
+        set({ 
+          isCold: false, 
+          scarfUsedTonight: true,
+          currentMessage: "Te pones la bufanda y ya no tienes frío.", 
+          showMessage: true 
+        });
+        console.log(`BUFANDA - Frío quitado correctamente, scarfUsedTonight: true`);
         
-        // Cambiar fase del tutorial
-        set({ tutorialPhase: 'final' });
+        // Verificar inmediatamente después del set
+        const immediateState = get();
+        console.log(`BUFANDA INMEDIATO - isCold: ${immediateState.isCold}, scarfUsedTonight: ${immediateState.scarfUsedTonight}`);
         
-        // Continuar con el mensaje final del tutorial
+        // Verificar el estado después del set
         setTimeout(() => {
-          const { BEAR_MESSAGES } = require('@/config/characters');
-          console.log('TUTORIAL: Mostrando mensaje final:', BEAR_MESSAGES.TUTORIAL_FINAL);
-          get().showBearGuide(BEAR_MESSAGES.TUTORIAL_FINAL);
-        }, 500);
+          const newState = get();
+          console.log(`BUFANDA VERIFICACIÓN - Después de usar: isCold: ${newState.isCold}, scarfUsedTonight: ${newState.scarfUsedTonight}`);
+        }, 100);
+      } else {
+        // No tiene frío - esto no debería pasar por la validación anterior
+        console.log(`BUFANDA - ERROR: No tiene frío pero llegó aquí`);
+        set({ 
+          currentMessage: "No tienes frío, pero te pones la bufanda por si acaso.", 
+          showMessage: true 
+        });
       }
     }
     
-    // Lógica antigua del tutorial eliminada - ahora se maneja en tutorialStore
-    
-    // Lógica antigua del tutorial eliminada - ahora se maneja en tutorialStore
+    // Tutorial eliminado completamente
     
     // Reducir cantidad usando set() para mantener consistencia
     const updatedInventory = state.inventory.map(i => 
@@ -1384,18 +1389,30 @@ export const useGameStore = create<GameState & {
   // Actualizar hambre
   updateHunger: (value: number) => {
     const state = get();
-    const currentDifficulty = getCurrentDifficulty(state.day);
-    let adjustedValue = value * currentDifficulty;
     
     // Si está contagiado, hambre baja 3x más rápido
+    let adjustedValue = value;
     if (state.isInfected && value < 0) {
       adjustedValue = adjustedValue * 3;
     }
     
+    // Clamp: asegurar que hambre esté entre 0 y 100
     const newHunger = Math.max(0, Math.min(100, state.hunger + adjustedValue));
     set({ hunger: newHunger });
     
-    if (newHunger < 30) {
+    // Mensajes irónicos de Peluso según el nivel de hambre
+    if (newHunger <= 0) {
+      // Crítico - hambre a 0
+      const { BEAR_MESSAGES } = require('@/config/characters');
+      const message = BEAR_MESSAGES.HUNGER_CRITICAL[Math.floor(Math.random() * BEAR_MESSAGES.HUNGER_CRITICAL.length)];
+      set({ currentMessage: message, showMessage: true });
+    } else if (newHunger < 20) {
+      // Muy bajo - hambre < 20
+      const { BEAR_MESSAGES } = require('@/config/characters');
+      const message = BEAR_MESSAGES.HUNGER_CRITICAL[Math.floor(Math.random() * BEAR_MESSAGES.HUNGER_CRITICAL.length)];
+      set({ currentMessage: message, showMessage: true });
+    } else if (newHunger < 30) {
+      // Bajo - hambre < 30
       set({ currentMessage: "¡Tienes hambre! Busca comida antes de que sea tarde.", showMessage: true });
     }
   },
@@ -1403,18 +1420,30 @@ export const useGameStore = create<GameState & {
   // Actualizar sed
   updateThirst: (value: number) => {
     const state = get();
-    const currentDifficulty = getCurrentDifficulty(state.day);
-    let adjustedValue = value * currentDifficulty;
     
     // Si está contagiado, sed baja 3x más rápido
+    let adjustedValue = value;
     if (state.isInfected && value < 0) {
       adjustedValue = adjustedValue * 3;
     }
     
+    // Clamp: asegurar que sed esté entre 0 y 100
     const newThirst = Math.max(0, Math.min(100, state.thirst + adjustedValue));
     set({ thirst: newThirst });
     
-    if (newThirst < 30) {
+    // Mensajes irónicos de Peluso según el nivel de sed
+    if (newThirst <= 0) {
+      // Crítico - sed a 0
+      const { BEAR_MESSAGES } = require('@/config/characters');
+      const message = BEAR_MESSAGES.THIRST_CRITICAL[Math.floor(Math.random() * BEAR_MESSAGES.THIRST_CRITICAL.length)];
+      set({ currentMessage: message, showMessage: true });
+    } else if (newThirst < 20) {
+      // Muy bajo - sed < 20
+      const { BEAR_MESSAGES } = require('@/config/characters');
+      const message = BEAR_MESSAGES.THIRST_CRITICAL[Math.floor(Math.random() * BEAR_MESSAGES.THIRST_CRITICAL.length)];
+      set({ currentMessage: message, showMessage: true });
+    } else if (newThirst < 30) {
+      // Bajo - sed < 30
       set({ currentMessage: "¡Tienes sed! Necesitas agua urgentemente.", showMessage: true });
     }
   },
@@ -1422,16 +1451,48 @@ export const useGameStore = create<GameState & {
   // Actualizar salud
   updateHealth: (value: number) => {
     const state = get();
-    const newHealth = Math.max(0, Math.min(100, state.health + value));
+    
+    // Si el juego ya terminó, no hacer nada
+    if (state.gameOver) {
+      console.log(`UPDATE HEALTH - Juego ya terminado, ignorando actualización de salud`);
+      return;
+    }
+    
+    // Calcular nueva salud sin clamp primero
+    const rawNewHealth = state.health + value;
+    
+    console.log(`UPDATE HEALTH - Valor: ${value}, Salud anterior: ${state.health}, Salud calculada: ${rawNewHealth}`);
+    
+    // Verificar si el juego debe terminar ANTES de aplicar el clamp
+    if (rawNewHealth <= 0) {
+      console.log(`UPDATE HEALTH - ¡SALUD LLEGÓ A 0 O MENOS! (${rawNewHealth}), llamando endGame()`);
+      set({ health: 0, gameOver: true }); // Establecer salud a 0 y marcar como terminado
+      get().endGame();
+      return;
+    }
+    
+    // Clamp: asegurar que salud esté entre 0 y 100
+    const newHealth = Math.max(0, Math.min(100, rawNewHealth));
     set({ health: newHealth });
+    
+    // Mensajes irónicos de Peluso según el nivel de salud
+    if (newHealth <= 10) {
+      // Crítico - salud <= 10
+      const { BEAR_MESSAGES } = require('@/config/characters');
+      const message = BEAR_MESSAGES.HEALTH_VERY_LOW[Math.floor(Math.random() * BEAR_MESSAGES.HEALTH_VERY_LOW.length)];
+      set({ currentMessage: message, showMessage: true });
+    } else if (newHealth <= 25) {
+      // Muy bajo - salud <= 25
+      const { BEAR_MESSAGES } = require('@/config/characters');
+      const message = BEAR_MESSAGES.HEALTH_CRITICAL[Math.floor(Math.random() * BEAR_MESSAGES.HEALTH_CRITICAL.length)];
+      set({ currentMessage: message, showMessage: true });
+    }
+    
+    console.log(`UPDATE HEALTH - Salud final: ${newHealth}`);
     
     // Activar temblor si se recibe daño
     if (value < 0) {
       get().triggerShake();
-    }
-    
-    if (newHealth <= 0) {
-      get().endGame();
     }
   },
   
@@ -1457,24 +1518,53 @@ export const useGameStore = create<GameState & {
   
   // Mostrar mensaje
   displayMessage: (message: string) => {
+    const state = get();
+    
+    // Si el juego terminó, no mostrar mensajes
+    if (state.gameOver) {
+      console.log(`MESSAGE DEBUG - Juego terminado, ignorando mensaje: "${message}"`);
+      return;
+    }
+    
+    // Evitar mensajes duplicados si ya hay uno mostrándose
+    if (state.showMessage && state.currentMessage === message) {
+      console.log(`MESSAGE DEBUG - Mensaje duplicado ignorado: "${message}"`);
+      return;
+    }
+    
+    // Si ya hay un mensaje mostrándose, esperar a que se cierre
+    if (state.showMessage) {
+      console.log(`MESSAGE DEBUG - Ya hay un mensaje mostrándose, ignorando: "${message}"`);
+      return;
+    }
+    
+    console.log(`MESSAGE DEBUG - Mostrando mensaje: "${message}"`);
     set({ currentMessage: message, showMessage: true });
     
-    // Ocultar mensaje después de 3 segundos
-    setTimeout(() => {
-      get().hideMessage();
-    }, 3000);
+    // El FloatingMessage se encarga del auto-cierre
+  },
+  
+  // Controlar animación de transición de día
+  showDayTransitionAnimation: (day: number) => {
+    set({ showDayTransition: true, transitionDay: day });
+  },
+  
+  hideDayTransitionAnimation: () => {
+    set({ showDayTransition: false });
   },
   
   // Ocultar mensaje
   hideMessage: () => {
-    set({ showMessage: false, showTutorial: false });
+    set({ showMessage: false, showTutorial: false, currentMessage: '' });
   },
   
   // Activar efecto de temblor
   triggerShake: () => {
+    console.log(`SHAKE TRIGGERED - Activando efecto de temblor`);
     set({ isShaking: true });
     setTimeout(() => {
       set({ isShaking: false });
+      console.log(`SHAKE ENDED - Desactivando efecto de temblor`);
     }, 500);
   },
   
@@ -1497,10 +1587,6 @@ export const useGameStore = create<GameState & {
   // Mostrar frase random de Peluso (NO pausa el juego)
   showRandomBearQuote: () => {
     const state = get();
-    // Si el tutorial está desactivado, no mostrar mensajes aleatorios
-    if (state.skipTutorial) {
-      return;
-    }
     
     const { BEAR_MESSAGES } = require('@/config/characters');
     const randomQuote = BEAR_MESSAGES.FUNNY_QUOTES[Math.floor(Math.random() * BEAR_MESSAGES.FUNNY_QUOTES.length)];
@@ -1514,10 +1600,6 @@ export const useGameStore = create<GameState & {
   // Mostrar mensaje de guía de Peluso (SÍ pausa el juego)
   showBearGuide: (message: string) => {
     const state = get();
-    // Si el tutorial está desactivado, no mostrar mensajes del oso
-    if (state.skipTutorial) {
-      return;
-    }
     
     set({ 
       currentMessage: message,
@@ -1533,12 +1615,9 @@ export const useGameStore = create<GameState & {
     const randomInterval = Math.random() * 30000 + 30000; // 30-60 segundos
     setTimeout(() => {
       const state = get();
-      if (state.isPlaying && !state.isPaused && !state.showTutorial && !state.skipTutorial) {
+      if (state.isPlaying && !state.isPaused && !state.showTutorial) {
         get().showRandomBearQuote();
         get().startRandomBearTimer(); // Programar la siguiente
-      } else if (state.isPlaying && !state.isPaused && !state.showTutorial && state.skipTutorial) {
-        // Si el tutorial está desactivado, no mostrar mensajes pero seguir programando
-        get().startRandomBearTimer();
       }
     }, randomInterval);
   },
@@ -1550,9 +1629,6 @@ export const useGameStore = create<GameState & {
     if (typeof window !== 'undefined') {
       localStorage.removeItem('unDiaMas_savedGame');
       localStorage.removeItem('unDiaMas_lastSave');
-      // También resetear las preferencias del tutorial
-      localStorage.removeItem('skipTutorial');
-      localStorage.removeItem('tutorialCompleted');
     }
   },
   
@@ -1612,6 +1688,7 @@ export const useGameStore = create<GameState & {
   // Eliminar partida guardada
   deleteSavedGame: () => {
     if (typeof window !== 'undefined') {
+      // Eliminar datos del juego
       localStorage.removeItem('unDiaMas_savedGame');
       localStorage.removeItem('unDiaMas_lastSave');
     }

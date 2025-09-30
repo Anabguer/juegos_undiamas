@@ -18,13 +18,6 @@ export default function Home() {
   const handleNewGame = () => {
     setShowSaveOptions(false);
     deleteSavedGame(); // Eliminar partida guardada antes de empezar nueva
-    
-    // También resetear las preferencias del tutorial para que el oso vuelva a aparecer
-    if (typeof window !== 'undefined') {
-      localStorage.removeItem('skipTutorial');
-      localStorage.removeItem('tutorialCompleted');
-    }
-    
     startGame();
   };
 
@@ -38,18 +31,11 @@ export default function Home() {
 
   const handleDeleteSave = () => {
     deleteSavedGame();
-    
-    // También resetear las preferencias del tutorial para que el oso vuelva a aparecer
-    if (typeof window !== 'undefined') {
-      localStorage.removeItem('skipTutorial');
-      localStorage.removeItem('tutorialCompleted');
-    }
-    
     setShowSaveOptions(false);
   };
 
   return (
-    <main className="min-h-screen">
+    <main className="h-screen overflow-hidden">
       {showSaveOptions && (
         <div className="fixed inset-0 bg-black bg-opacity-80 flex items-center justify-center z-50">
           <div className="bg-gray-800 p-8 rounded-lg border-2 border-yellow-400 max-w-md mx-4">

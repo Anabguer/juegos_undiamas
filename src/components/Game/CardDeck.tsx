@@ -8,6 +8,8 @@ export const CardDeck: React.FC = () => {
   const { currentCards, selectCard, openBlockedHouseModal, generateCards, updateHealth, inventory, isPaused, showTutorial } = useGameStore();
   const [timeLeft, setTimeLeft] = useState(10);
   const [hasShownTimeMessage, setHasShownTimeMessage] = useState(false);
+  const [isAnimating, setIsAnimating] = useState(false);
+  const [clickCooldown, setClickCooldown] = useState(false);
   
 
   // Timer para las cartas
@@ -16,12 +18,13 @@ export const CardDeck: React.FC = () => {
       const timer = setInterval(() => {
         setTimeLeft(prev => {
           if (prev <= 1) {
-            // Tiempo agotado - penalización
-            updateHealth(-10);
+            // Tiempo agotado - penalización leve de hambre
+            const { updateHunger } = useGameStore.getState();
+            updateHunger(-3); // Solo -3 de hambre, no vida
             // Solo mostrar mensaje una vez
             if (!hasShownTimeMessage) {
               setTimeout(() => {
-                useGameStore.setState({ currentMessage: "¡Tiempo agotado! Pierdes salud por no elegir.", showMessage: true });
+                useGameStore.setState({ currentMessage: "¡Tiempo agotado! Tienes un poco más de hambre.", showMessage: true });
                 setHasShownTimeMessage(true);
               }, 0);
             }
@@ -40,17 +43,34 @@ export const CardDeck: React.FC = () => {
   // Generar cartas cuando no hay ninguna y resetear timer
   useEffect(() => {
     if (currentCards.length === 0) {
+      setIsAnimating(true);
       generateCards();
+      // Deshabilitar clics durante 1.5 segundos (duración de la animación)
+      setTimeout(() => {
+        setIsAnimating(false);
+      }, 1500);
     }
     setTimeLeft(10);
     setHasShownTimeMessage(false);
   }, [currentCards.length, generateCards]);
 
   const handleCardSelect = (cardId: string) => {
+    // Verificar cooldown
+    if (clickCooldown) {
+      console.log(`CARTA BLOQUEADA - Cooldown activo, espera 2 segundos`);
+      return;
+    }
+
     const card = currentCards.find(c => c.id === cardId);
     if (!card) {
       return;
     }
+
+    // Activar cooldown de 2 segundos
+    setClickCooldown(true);
+    setTimeout(() => {
+      setClickCooldown(false);
+    }, 2000);
 
     // Manejar casas bloqueadas
     if (card.effect.type === 'blocked_house' || card.isBlockedHouse) {
@@ -159,14 +179,15 @@ export const CardDeck: React.FC = () => {
                 stiffness: 200,
                 damping: 20
               }}
-              whileHover={{ scale: 1.05, y: -5 }}
-              whileTap={{ scale: 0.95 }}
+              whileHover={(!isAnimating && !clickCooldown) ? { scale: 1.05, y: -5 } : {}}
+              whileTap={(!isAnimating && !clickCooldown) ? { scale: 0.95 } : {}}
               className={`
-                w-24 h-24 sm:w-28 sm:h-28 rounded-lg cursor-pointer
+                w-24 h-24 sm:w-28 sm:h-28 rounded-lg ${(isAnimating || clickCooldown) ? 'cursor-not-allowed' : 'cursor-pointer'}
                 shadow-lg hover:shadow-xl transition-all duration-200
                 flex flex-col items-center justify-center p-1 sm:p-2
                 text-white touch-manipulation flex-shrink-0
                 bg-cover bg-center bg-no-repeat
+                ${(isAnimating || clickCooldown) ? 'opacity-70' : 'opacity-100'}
               `}
               style={{ 
                 backgroundImage: 'url(/images/carta.png)',
@@ -174,6 +195,16 @@ export const CardDeck: React.FC = () => {
                 minWidth: '44px' 
               }}
               onClick={() => {
+                // Bloquear clics durante la animación de cartas
+                if (isAnimating) {
+                  return;
+                }
+                
+                // Bloquear clics durante el cooldown
+                if (clickCooldown) {
+                  return;
+                }
+                
                 // Bloquear TODAS las interacciones durante el tutorial inicial
                 const { showTutorial, currentMessage } = useGameStore.getState();
                 if (showTutorial && !currentMessage.includes('Entra en las casas') && !currentMessage.includes('bloqueada')) {

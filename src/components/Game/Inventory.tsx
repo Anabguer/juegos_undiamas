@@ -6,6 +6,8 @@ import { motion } from 'framer-motion';
 
 export const Inventory: React.FC = () => {
   const { inventory, useItem } = useGameStore();
+  
+  // Debug: mostrar inventario en consola
 
   // Items fijos que siempre se muestran
   const fixedItems = [
@@ -17,20 +19,17 @@ export const Inventory: React.FC = () => {
   ];
 
   const handleItemUse = (itemName: string) => {
-    console.log('INVENTORY: Intentando usar item:', itemName);
     // Buscar el item en el inventario real
     const item = inventory.find(i => i.name === itemName);
     if (item) {
-      console.log('INVENTORY: Item encontrado, usando:', item);
       useItem(item.id);
-    } else {
-      console.log('INVENTORY: Item no encontrado en inventario');
     }
   };
 
   const getItemQuantity = (itemName: string) => {
     const item = inventory.find(i => i.name === itemName);
-    return item ? item.quantity : 0;
+    const quantity = item ? item.quantity : 0;
+    return quantity;
   };
 
   const getItemColor = (type: string) => {
@@ -107,22 +106,11 @@ export const Inventory: React.FC = () => {
                 shadow-lg hover:shadow-xl transition-all duration-200
                 flex flex-col items-center justify-center p-1
                 text-white relative touch-manipulation
-                ${quantity === 0 ? 'opacity-50' : ''}
+                ${quantity === 0 ? 'opacity-30 grayscale' : 'opacity-100'}
                 mx-4
               `}
               style={{ minHeight: '48px', minWidth: '48px' }}
               onClick={() => {
-                // No permitir usar items durante el tutorial (excepto la manzana del tutorial, el bate cuando aparece zombie, y la bufanda cuando hace frío)
-                const { showTutorial, tutorialPhase } = useGameStore.getState();
-                console.log('INVENTORY: Click en item:', item.name, 'showTutorial:', showTutorial, 'tutorialPhase:', tutorialPhase);
-                
-                if (showTutorial && item.name !== 'Manzana' && 
-                    !(item.name === 'Bate' && tutorialPhase === 'zombie_warning') &&
-                    !(item.name === 'Bufanda' && tutorialPhase === 'cold_night')) {
-                  console.log('INVENTORY: Item bloqueado durante tutorial');
-                  return;
-                }
-                console.log('INVENTORY: Item permitido, procediendo a usar');
                 handleItemUse(item.name);
               }}
               title={`${item.name} (${quantity}) - ${getItemDescription({ type: item.type })}`}
@@ -133,8 +121,8 @@ export const Inventory: React.FC = () => {
                 className="w-12 h-12 sm:w-14 sm:h-14 object-contain"
               />
               
-              {/* Contador de cantidad - Estilo retro */}
-              <div className="absolute bottom-0 right-0 bg-yellow-600 text-black text-sm sm:text-base rounded-md w-6 h-6 sm:w-7 sm:h-7 flex items-center justify-center font-black border-2 border-yellow-800 shadow-lg" style={{ fontFamily: 'Comic Sans MS, cursive' }}>
+              {/* Contador de cantidad - Estilo retro mejorado */}
+              <div className={`absolute bottom-0 right-0 text-black text-sm sm:text-base rounded-md w-6 h-6 sm:w-7 sm:h-7 flex items-center justify-center font-black border-2 shadow-lg ${quantity > 0 ? 'bg-green-500 border-green-700' : 'bg-gray-500 border-gray-700'}`} style={{ fontFamily: 'Comic Sans MS, cursive' }}>
                 {quantity}
               </div>
             </motion.div>

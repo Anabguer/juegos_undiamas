@@ -96,29 +96,6 @@ export const GameHUD: React.FC = () => {
                      <div className="text-yellow-400 font-black text-sm sm:text-base">?</div>
                    </button>
                    
-                   {/* Botón de tutorial */}
-                   <button
-                     onClick={() => setSkipTutorial(!skipTutorial)}
-                     className={`bg-black bg-opacity-60 border-2 w-8 h-8 sm:w-10 sm:h-10 rounded-full hover:bg-opacity-80 transition-colors touch-manipulation flex items-center justify-center ${
-                       skipTutorial 
-                         ? 'border-gray-400' 
-                         : 'border-yellow-400'
-                     }`}
-                     title={skipTutorial ? "Activar tutorial" : "Desactivar tutorial"}
-                   >
-                     <div className={`relative ${skipTutorial ? 'opacity-50' : 'opacity-100'}`}>
-                       <img 
-                         src="/images/ositonarrador.png" 
-                         alt="Peluso" 
-                         className="w-5 h-5 sm:w-6 sm:h-6 object-contain"
-                       />
-                       {skipTutorial && (
-                         <div className="absolute inset-0 flex items-center justify-center">
-                           <div className="w-full h-0.5 bg-red-500 transform rotate-45"></div>
-                         </div>
-                       )}
-                     </div>
-                   </button>
                    
                  </div>
         </div>

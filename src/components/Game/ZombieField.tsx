@@ -5,7 +5,12 @@ import { useGameStore } from '@/store/gameStore';
 import { motion } from 'framer-motion';
 
 export const ZombieField: React.FC = () => {
-  const { zombies, killZombie } = useGameStore();
+  const { zombies, zombieDeathEffect } = useGameStore();
+  
+  // Debug: mostrar posiciones de zombies
+  if (zombies.length > 0) {
+    console.log(`ZOMBIE FIELD - Zombies en pantalla: ${zombies.length}, Posiciones: ${zombies.map(z => z.position.toFixed(1)).join(', ')}`);
+  }
 
   const getZombieImage = (zombie: any) => {
     const images = ['/images/zombie1.png', '/images/zombie2.png', '/images/zombie3.png', '/images/zombie4.png'];
@@ -30,19 +35,8 @@ export const ZombieField: React.FC = () => {
     }
   };
 
-  const handleZombieClick = (zombieId: string) => {
-    // Verificar si el jugador tiene un bate
-    const { inventory } = useGameStore.getState();
-    const bate = inventory.find(item => item.name === 'Bate' && item.quantity > 0);
-    
-    if (bate) {
-      killZombie(zombieId);
-      // Usar el bate
-      useGameStore.getState().useItem(bate.id);
-    } else {
-      useGameStore.getState().showMessage("Necesitas un bate para eliminar zombis!");
-    }
-  };
+  // Los zombies ya no se pueden hacer clic directamente
+  // Ahora se matan usando el bate desde el inventario
 
   return (
     <div className="mb-4 sm:mb-8">
@@ -51,7 +45,8 @@ export const ZombieField: React.FC = () => {
       {/* Campo de 6 casillas (0-5) */}
       <div className="grid grid-cols-6 gap-1 sm:gap-2 max-w-2xl mx-auto">
         {Array.from({ length: 6 }, (_, index) => {
-          const zombie = zombies.find(z => z.position === index);
+          // Buscar zombie en esta casilla (redondeando la posición)
+          const zombie = zombies.find(z => Math.round(z.position) === index);
           
           return (
             <div
@@ -61,13 +56,10 @@ export const ZombieField: React.FC = () => {
             >
               {zombie ? (
                 <motion.div
-                  className="cursor-pointer"
+                  className="relative flex items-center justify-center"
                   initial={{ scale: 0 }}
                   animate={{ scale: 1 }}
-                  whileHover={{ scale: 1.1 }}
-                  whileTap={{ scale: 0.9 }}
-                  onClick={() => handleZombieClick(zombie.id)}
-                  title={`Zombi ${zombie.type} - Haz clic para usar bate`}
+                  title={`Zombi ${zombie.type} - Usa el bate del inventario para matarlo`}
                 >
                   <img 
                     src={getZombieImage(zombie)} 
@@ -75,6 +67,41 @@ export const ZombieField: React.FC = () => {
                     className="w-12 h-12 sm:w-16 sm:h-16 object-contain"
                   />
                 </motion.div>
+              ) : zombieDeathEffect && zombieDeathEffect.position === index && zombieDeathEffect.isActive ? (
+                <div className="relative overflow-hidden">
+                  <motion.div
+                    className="absolute inset-0 flex items-center justify-center"
+                    initial={{ scale: 1, rotate: 0 }}
+                    animate={{ 
+                      scale: [1, 1.5, 0],
+                      rotate: [0, 360, 720],
+                      x: [0, 50, 100],
+                      y: [0, -25, -50],
+                      opacity: [1, 0.5, 0]
+                    }}
+                    transition={{ duration: 2, ease: "easeOut" }}
+                  >
+                    <img 
+                      src={getZombieImage({ id: zombieDeathEffect.zombieId })} 
+                      alt="Zombi muerto"
+                      className="w-12 h-12 sm:w-16 sm:h-16 object-contain"
+                    />
+                    {/* Efecto de bate volando hacia el zombie */}
+                    <motion.img
+                      src="/images/bat.png"
+                      alt="Bate"
+                      className="absolute w-8 h-8 sm:w-10 sm:h-10 object-contain"
+                      initial={{ x: -50, y: 0, scale: 0 }}
+                      animate={{ 
+                        x: [0, 25, 50],
+                        y: [0, -12, -25],
+                        scale: [0, 1, 0.5],
+                        rotate: [0, 180, 360]
+                      }}
+                      transition={{ duration: 1.5, ease: "easeInOut" }}
+                    />
+                  </motion.div>
+                </div>
               ) : (
                 <div className="text-gray-500 text-xs sm:text-sm">
                   {index === 0 ? (

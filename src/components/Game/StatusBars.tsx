@@ -2,6 +2,7 @@
 
 import React from 'react';
 import { useGameStore } from '@/store/gameStore';
+import { motion } from 'framer-motion';
 
 export const StatusBars: React.FC = () => {
   const { hunger, thirst, health, isInfected, isCold, isShaking } = useGameStore();
@@ -30,20 +31,36 @@ export const StatusBars: React.FC = () => {
     return '/images/salud.png';
   };
 
+  const shouldShake = (value: number) => {
+    return value < 30;
+  };
+
+  const getShakeAnimation = () => ({
+    x: [0, -2, 2, -2, 2, 0],
+    y: [0, -1, 1, -1, 1, 0],
+    transition: {
+      duration: 0.5,
+      repeat: Infinity,
+      repeatDelay: 1,
+      ease: "easeInOut"
+    }
+  });
+
   return (
     <div className="bg-black bg-opacity-50 rounded-lg p-2 sm:p-4 mb-4 sm:mb-6">
       <div className="flex flex-row gap-1 sm:gap-4">
         {/* Barra de Hambre */}
         <div className="flex items-center space-x-1 sm:space-x-2 flex-1">
-        <img 
-          src={getStatusIcon('hunger', hunger)} 
-          alt="Hambre" 
-          className="w-8 h-8 sm:w-10 sm:h-10"
-        />
+          <motion.img 
+            src={getStatusIcon('hunger', hunger)} 
+            alt="Hambre" 
+            className="w-8 h-8 sm:w-10 sm:h-10"
+            animate={shouldShake(hunger) ? getShakeAnimation() : {}}
+          />
           <div className="flex-1">
             <div className="flex justify-between text-xs text-white mb-1">
               <span className="hidden sm:block">Hambre</span>
-              <span>{hunger}%</span>
+              <span>{Math.round(hunger)}%</span>
             </div>
             <div className="w-full bg-gray-700 rounded-full h-2">
               <div
@@ -56,15 +73,16 @@ export const StatusBars: React.FC = () => {
 
         {/* Barra de Sed */}
         <div className="flex items-center space-x-1 sm:space-x-2 flex-1">
-        <img 
-          src={getStatusIcon('thirst', thirst)} 
-          alt="Sed" 
-          className="w-6 h-6 sm:w-8 sm:h-8"
-        />
+          <motion.img 
+            src={getStatusIcon('thirst', thirst)} 
+            alt="Sed" 
+            className="w-6 h-6 sm:w-8 sm:h-8"
+            animate={shouldShake(thirst) ? getShakeAnimation() : {}}
+          />
           <div className="flex-1">
             <div className="flex justify-between text-xs text-white mb-1">
               <span className="hidden sm:block">Sed</span>
-              <span>{thirst}%</span>
+              <span>{Math.round(thirst)}%</span>
             </div>
             <div className="w-full bg-gray-700 rounded-full h-2">
               <div
@@ -77,15 +95,16 @@ export const StatusBars: React.FC = () => {
 
         {/* Barra de Salud */}
         <div className="flex items-center space-x-1 sm:space-x-2 flex-1 relative">
-        <img 
-          src={getStatusIcon('health', health)} 
-          alt="Salud" 
-          className="w-8 h-8 sm:w-10 sm:h-10"
-        />
+          <motion.img 
+            src={getStatusIcon('health', health)} 
+            alt="Salud" 
+            className="w-8 h-8 sm:w-10 sm:h-10"
+            animate={shouldShake(health) ? getShakeAnimation() : {}}
+          />
           <div className="flex-1">
             <div className="flex justify-between text-xs text-white mb-1">
               <span className="hidden sm:block">Salud</span>
-              <span>{health}%</span>
+              <span>{Math.round(health)}%</span>
             </div>
             <div className="w-full bg-gray-700 rounded-full h-2 relative">
               <div
