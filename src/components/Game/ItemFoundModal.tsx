@@ -32,7 +32,7 @@ export const ItemFoundModal: React.FC<ItemFoundModalProps> = ({
       console.log(`ITEM MODAL - Abriendo modal, auto-cerrar en 3 segundos`);
       timerRef.current = setTimeout(() => {
         console.log(`ITEM MODAL - Auto-cerrando modal después de 3 segundos`);
-        handleClose();
+        handleClose(); // Usar handleClose en lugar de onClose directamente
       }, 3000);
       
       return () => {
@@ -43,7 +43,7 @@ export const ItemFoundModal: React.FC<ItemFoundModalProps> = ({
         }
       };
     }
-  }, [isOpen, handleClose]);
+  }, [isOpen, handleClose]); // Incluir handleClose en las dependencias
 
   if (!isOpen) return null;
 

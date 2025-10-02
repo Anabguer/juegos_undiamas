@@ -1,15 +1,25 @@
 'use client';
 
-import React from 'react';
+import React, { useRef } from 'react';
 import { useGameStore } from '@/store/gameStore';
-import { motion } from 'framer-motion';
+import { motion, AnimatePresence } from 'framer-motion';
 
 export const ZombieField: React.FC = () => {
   const { zombies, zombieDeathEffect } = useGameStore();
+  const prevZombieCount = useRef(0);
   
   // Debug: mostrar posiciones de zombies
   if (zombies.length > 0) {
-    console.log(`ZOMBIE FIELD - Zombies en pantalla: ${zombies.length}, Posiciones: ${zombies.map(z => z.position.toFixed(1)).join(', ')}`);
+    // Solo mostrar cuando hay cambios en el número de zombies
+    if (zombies.length !== prevZombieCount.current) {
+      console.log(`ZOMBIE FIELD - Zombies: ${zombies.length}`);
+      prevZombieCount.current = zombies.length;
+    }
+  }
+  
+  // Debug: mostrar efecto de muerte de zombie
+  if (zombieDeathEffect) {
+    console.log(`ZOMBIE FIELD - Efecto de muerte activo:`, zombieDeathEffect);
   }
 
   const getZombieImage = (zombie: any) => {
@@ -39,19 +49,20 @@ export const ZombieField: React.FC = () => {
   // Ahora se matan usando el bate desde el inventario
 
   return (
-    <div className="mb-4 sm:mb-8">
+    <div className="mb-4 sm:mb-8 relative">
       <h3 className="text-white text-center text-lg sm:text-xl font-bold mb-2 sm:mb-4">Campo de Batalla</h3>
       
       {/* Campo de 6 casillas (0-5) */}
-      <div className="grid grid-cols-6 gap-1 sm:gap-2 max-w-2xl mx-auto">
+      <div className="grid grid-cols-6 gap-1 sm:gap-2 max-w-2xl mx-auto relative px-2">
         {Array.from({ length: 6 }, (_, index) => {
           // Buscar zombie en esta casilla (redondeando la posición)
           const zombie = zombies.find(z => Math.round(z.position) === index);
+          const isDeathCell = zombieDeathEffect && zombieDeathEffect.position === index && zombieDeathEffect.isActive;
           
           return (
             <div
               key={index}
-              className="h-16 sm:h-20 bg-gray-800 bg-opacity-50 rounded-lg border-2 border-gray-600 flex items-center justify-center relative touch-manipulation"
+              className="h-14 sm:h-16 md:h-20 bg-gray-800 bg-opacity-50 rounded-lg border-2 border-gray-600 flex items-center justify-center relative touch-manipulation overflow-visible"
               style={{ minHeight: '44px' }}
             >
               {zombie ? (
@@ -64,41 +75,76 @@ export const ZombieField: React.FC = () => {
                   <img 
                     src={getZombieImage(zombie)} 
                     alt="Zombi"
-                    className="w-12 h-12 sm:w-16 sm:h-16 object-contain"
+                    className="w-10 h-10 sm:w-12 sm:h-12 md:w-16 md:h-16 object-contain"
                   />
                 </motion.div>
-              ) : zombieDeathEffect && zombieDeathEffect.position === index && zombieDeathEffect.isActive ? (
-                <div className="relative overflow-hidden">
+              ) : isDeathCell ? (
+                // Efecto cuando el zombie muere en esta casilla - ESTILO COMIC SUCIO
+                <div className="absolute inset-0 overflow-visible pointer-events-none">
+                  {/* Zombie girando y volando hacia arriba-IZQUIERDA (hacia el contador de zombies) */}
                   <motion.div
-                    className="absolute inset-0 flex items-center justify-center"
-                    initial={{ scale: 1, rotate: 0 }}
+                    className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 z-[100]"
+                    initial={{ x: 0, y: 0, scale: 1.2, rotate: 0, opacity: 1 }}
                     animate={{ 
-                      scale: [1, 1.5, 0],
-                      rotate: [0, 360, 720],
-                      x: [0, 50, 100],
-                      y: [0, -25, -50],
-                      opacity: [1, 0.5, 0]
+                      x: [0, -100, -250, -450, -600], // Invertido para ir a la IZQUIERDA
+                      y: [0, -80, -200, -350, -500],
+                      scale: [1.2, 1.3, 1, 0.5, 0],
+                      rotate: [0, 360, 720, 1080, 1440], // 4 vueltas completas
+                      opacity: [1, 1, 1, 0.7, 0]
                     }}
-                    transition={{ duration: 2, ease: "easeOut" }}
+                    transition={{ 
+                      duration: 2,
+                      ease: "easeOut",
+                      times: [0, 0.2, 0.4, 0.7, 1]
+                    }}
                   >
                     <img 
                       src={getZombieImage({ id: zombieDeathEffect.zombieId })} 
                       alt="Zombi muerto"
-                      className="w-12 h-12 sm:w-16 sm:h-16 object-contain"
-                    />
-                    {/* Efecto de bate volando hacia el zombie */}
-                    <motion.img
-                      src="/images/bat.png"
-                      alt="Bate"
-                      className="absolute w-8 h-8 sm:w-10 sm:h-10 object-contain"
-                      initial={{ x: -50, y: 0, scale: 0 }}
-                      animate={{ 
-                        x: [0, 25, 50],
-                        y: [0, -12, -25],
-                        scale: [0, 1, 0.5],
-                        rotate: [0, 180, 360]
+                      className="w-16 h-16 sm:w-24 sm:h-24 object-contain"
+                      style={{
+                        filter: 'drop-shadow(0 0 4px rgba(0, 0, 0, 0.8))'
                       }}
-                      transition={{ duration: 1.5, ease: "easeInOut" }}
+                    />
+                  </motion.div>
+
+                  {/* Polvo/Humo de impacto - ESTILO COMIC SUCIO */}
+                  <motion.div
+                    className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 z-[90]"
+                    initial={{ scale: 0, opacity: 0.8 }}
+                    animate={{ 
+                      scale: [0, 1.5, 2.5],
+                      opacity: [0.8, 0.4, 0]
+                    }}
+                    transition={{ duration: 1, ease: "easeOut" }}
+                  >
+                    <div className="w-20 h-20 rounded-full bg-gray-600 blur-md" />
+                  </motion.div>
+
+                  {/* Bate golpeando desde la derecha */}
+                  <motion.div
+                    className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 z-[95]"
+                    initial={{ x: 40, y: -20, rotate: -45, opacity: 1, scale: 1 }}
+                    animate={{ 
+                      x: [40, -10, -30],
+                      y: [-20, 0, 10],
+                      rotate: [-45, -90, -120],
+                      opacity: [1, 1, 0],
+                      scale: [1, 1.1, 0.8]
+                    }}
+                    transition={{ 
+                      duration: 0.5, 
+                      ease: "easeIn",
+                      times: [0, 0.5, 1]
+                    }}
+                  >
+                    <img 
+                      src="/images/bat.png" 
+                      alt="Bate"
+                      className="w-12 h-12 sm:w-16 sm:h-16 object-contain"
+                      style={{
+                        filter: 'drop-shadow(2px 2px 4px rgba(0, 0, 0, 0.8))'
+                      }}
                     />
                   </motion.div>
                 </div>
@@ -113,12 +159,10 @@ export const ZombieField: React.FC = () => {
                   ) : ''}
                 </div>
               )}
-              
             </div>
           );
         })}
       </div>
-      
     </div>
   );
 };

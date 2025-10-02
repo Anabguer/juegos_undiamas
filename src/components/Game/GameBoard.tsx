@@ -1,24 +1,32 @@
 'use client';
 
-import React from 'react';
+import React, { useCallback, useState, useEffect } from 'react';
 import { useGameStore } from '@/store/gameStore';
 import { useGameTimer } from '@/hooks/useGameTimer';
 import { useAutoSave } from '@/hooks/useAutoSave';
 import { motion } from 'framer-motion';
 import { StatusBars } from './StatusBars';
+import { StatusIndicators } from './StatusIndicators';
 import { Character } from './Character';
 import { CardDeck } from './CardDeck';
 import { ZombieField } from './ZombieField';
 import { Inventory } from './Inventory';
 import { GameHUD } from './GameHUD';
 import { GameMessage } from './GameMessage';
+import { SettingsModal } from './SettingsModal';
+import { RegisterModal } from './RegisterModal';
+import { RankingModal } from './RankingModal';
+import { BackgroundMusic } from './BackgroundMusic';
 import { ItemFoundModal } from './ItemFoundModal';
 import { TutorialModal } from './TutorialModal';
 import { ItemSelectionGrid } from './ItemSelectionGrid';
 import { FloatingMessage } from './FloatingMessage';
 import { PauseOverlay } from './PauseOverlay';
 import BlockedHouseModal from './BlockedHouseModal';
+import { RatsMinigame } from './RatsMinigame';
+import { ZombieBatsMinigame } from './ZombieBatsMinigame';
 import { DayTransitionAnimation } from './DayTransitionAnimation';
+import { PelusoMessage } from './PelusoMessage';
 
 // Función para obtener mensajes absurdos de items
 const getAbsurdMessage = (itemName: string, quantity: number) => {
@@ -59,7 +67,11 @@ const getAbsurdMessage = (itemName: string, quantity: number) => {
   return "¿Esto? ¡No sé ni para qué sirve!";
 };
 
-export const GameBoard: React.FC = () => {
+const GameBoardComponent: React.FC = () => {
+  const [hasUserInteracted, setHasUserInteracted] = useState(false);
+  
+  // Renderizar BackgroundMusic SIEMPRE al principio
+  
   const { 
     isPlaying, 
     isPaused, 
@@ -100,9 +112,20 @@ export const GameBoard: React.FC = () => {
     blockedHouseCardId,
     blockedHouseClicks,
     closeBlockedHouseModal,
+    showRatsMinigame,
+    ratsMinigameCardId,
+    completeRatsMinigame,
+    timeoutRatsMinigame,
+    showZombieBatsMinigame,
+    zombieBatsMinigameCardId,
+    completeZombieBatsMinigame,
+    timeoutZombieBatsMinigame,
     showDayTransition,
     transitionDay,
-    hideDayTransitionAnimation
+    hideDayTransitionAnimation,
+    showPelusoMessage,
+    hidePelusoMessage,
+    goToRegister
   } = useGameStore();
 
   // Iniciar el timer del juego
@@ -110,6 +133,53 @@ export const GameBoard: React.FC = () => {
   
   // Usar el hook de auto-guardado
   useAutoSave();
+
+  // Detectar primera interacción del usuario para reproducir música
+  useEffect(() => {
+    const handleFirstInteraction = () => {
+      if (!hasUserInteracted) {
+        console.log('PRIMERA INTERACCIÓN DETECTADA - Intentando reproducir música...');
+        setHasUserInteracted(true);
+        
+        // Esperar un poco para que BackgroundMusic se monte
+        setTimeout(() => {
+          const { playBackground } = useGameStore.getState();
+          console.log('PLAY BACKGROUND FUNCTION (después de timeout):', !!playBackground);
+          if (playBackground) {
+            console.log('LLAMANDO A playBackground()...');
+            playBackground();
+          } else {
+            console.log('playBackground AÚN NO ESTÁ DISPONIBLE EN EL STORE');
+            // Intentar de nuevo en 100ms
+            setTimeout(() => {
+              const { playBackground: playBg2 } = useGameStore.getState();
+              console.log('PLAY BACKGROUND FUNCTION (segundo intento):', !!playBg2);
+              if (playBg2) {
+                console.log('LLAMANDO A playBackground() (segundo intento)...');
+                playBg2();
+              }
+            }, 100);
+          }
+        }, 100);
+      }
+    };
+
+    // Añadir listeners para detectar cualquier interacción
+    document.addEventListener('click', handleFirstInteraction, { once: true });
+    document.addEventListener('keydown', handleFirstInteraction, { once: true });
+    document.addEventListener('touchstart', handleFirstInteraction, { once: true });
+
+    return () => {
+      document.removeEventListener('click', handleFirstInteraction);
+      document.removeEventListener('keydown', handleFirstInteraction);
+      document.removeEventListener('touchstart', handleFirstInteraction);
+    };
+  }, [hasUserInteracted]);
+
+  // Función estable para cerrar el modal de item encontrado
+  const handleItemModalClose = useCallback(() => {
+    setShowItemFoundModal(false);
+  }, [setShowItemFoundModal]);
 
   // Efectos visuales según el estado
   const getBackgroundClass = () => {
@@ -136,7 +206,7 @@ export const GameBoard: React.FC = () => {
       return 'filter hue-rotate-0 saturate-200 brightness-125 animate-pulse'; // Efecto rojizo
     }
     if (thirst < 30) {
-      return 'filter blur-sm brightness-90'; // Efecto borroso
+      return 'filter hue-rotate-180 saturate-150 brightness-115 animate-pulse'; // Efecto azul/cyan (sin blur)
     }
     if (isCold) {
       return 'filter brightness-60 hue-rotate-200 saturate-150'; // Efecto frío azulado
@@ -144,6 +214,9 @@ export const GameBoard: React.FC = () => {
     return '';
   };
 
+  // Renderizar BackgroundMusic SIEMPRE
+  console.log('GAMEBOARD - BackgroundMusic definido');
+  
   // Pantalla de resumen del inventario
   if (showInventorySummary) {
     const getInventorySummary = () => {
@@ -170,14 +243,14 @@ export const GameBoard: React.FC = () => {
       return summary;
     };
 
-
     const inventorySummary = getInventorySummary();
 
     return (
-      <div 
-        className="min-h-screen flex items-center justify-center bg-cover bg-center bg-no-repeat px-4"
-        style={{ backgroundImage: 'url(/images/inventario0.png)' }}
-      >
+      <>
+        <div 
+          className="min-h-screen flex items-center justify-center bg-cover bg-center bg-no-repeat px-4"
+          style={{ backgroundImage: 'url(/images/inventario0.png)' }}
+        >
         <div className="text-center text-white max-w-2xl mx-auto bg-black bg-opacity-70 rounded-lg p-6 sm:p-8">
           <h1 className="text-3xl sm:text-4xl font-bold mb-6 text-yellow-400">Tu Inventario</h1>
           
@@ -310,29 +383,58 @@ export const GameBoard: React.FC = () => {
                  <div className="mt-8 mb-8 sm:mb-12">
                    <button
                      onClick={() => {
-                       useGameStore.getState().setShowInventorySummary(false);
-                       startGame();
+                       console.log('BOTÓN ¡A VER CUÁNTO SOBREVIVO! CLICKEADO - Iniciando juego...');
+                       const store = useGameStore.getState();
+                       store.setShowInventorySummary(false);
+                       store.startGame();
+                       console.log('BOTÓN ¡A VER CUÁNTO SOBREVIVO! - Juego iniciado');
                      }}
-                     className="bg-yellow-400 text-black px-6 py-3 sm:px-8 sm:py-4 rounded-xl text-lg sm:text-xl font-black hover:bg-yellow-300 transition-colors touch-manipulation shadow-2xl border-4 border-black transform hover:scale-105"
+                     className="bg-yellow-400 text-black px-6 py-3 sm:px-8 sm:py-4 rounded-xl text-lg sm:text-xl font-black hover:bg-yellow-300 transition-colors touch-manipulation shadow-2xl border-4 border-black transform hover:scale-105 relative"
                      style={{ 
                        minHeight: '50px',
                        fontFamily: 'Comic Sans MS, cursive',
                        textShadow: '2px 2px 0px #000',
-                       boxShadow: '4px 4px 0px #000'
+                       boxShadow: '4px 4px 0px #000, 0 0 20px rgba(255, 255, 0, 0.6), 0 0 40px rgba(255, 255, 0, 0.3)',
+                       border: '4px solid #000, 2px solid rgba(255, 255, 0, 0.8)'
                      }}
                    >
+                     {/* Efecto de resplandor sucio */}
+                     <div 
+                       className="absolute inset-0 rounded-xl pointer-events-none"
+                       style={{
+                         background: 'linear-gradient(45deg, rgba(255, 255, 0, 0.3) 0%, rgba(255, 255, 0, 0.1) 50%, rgba(255, 255, 0, 0.3) 100%)',
+                         filter: 'blur(1px)',
+                         animation: 'pulse 2s ease-in-out infinite'
+                       }}
+                     />
                      ¡A VER CUÁNTO SOBREVIVO!
+                   </button>
+                 </div>
+                 
+                 {/* Texto de ayuda sutil */}
+                 <div className="mt-6 text-center">
+                   <button
+                     onClick={() => {
+                       const { setShowHelp } = useGameStore.getState();
+                       setShowHelp(true);
+                     }}
+                     className="text-gray-400 hover:text-yellow-400 transition-colors text-sm font-medium"
+                     style={{ fontFamily: 'Comic Sans MS, cursive' }}
+                   >
+                     ¿Necesitas ayuda?
                    </button>
                  </div>
         </div>
       </div>
+      </>
     );
   }
 
   // Pantalla de ayuda
   if (showHelp) {
     return (
-      <div 
+      <>
+        <div 
         className="min-h-screen flex items-center justify-center bg-cover bg-center bg-no-repeat px-4"
         style={{ backgroundImage: 'url(/images/portada.png)' }}
       >
@@ -356,11 +458,11 @@ export const GameBoard: React.FC = () => {
             
             <p className="text-blue-400" style={{ fontFamily: 'Comic Sans MS, cursive' }}><strong>NOCTURNO (21:00-05:00):</strong> Hace frío, necesitas bufanda o te bajará el hambre y luego ya sabes lo que pasa</p>
             
-            <p className="text-red-400" style={{ fontFamily: 'Comic Sans MS, cursive' }}><strong>PELIGROS:</strong> Si tu hambre, sed o salud llegan a 0, mueres</p>
+            <p className="text-red-400" style={{ fontFamily: 'Comic Sans MS, cursive' }}><strong>PELIGROS:</strong> Si tu hambre y tu sed llegan a 0 te bajarán la salud y si la salud llega a 0, mueres, desapareces, se finí</p>
             
             <p className="text-orange-400" style={{ fontFamily: 'Comic Sans MS, cursive' }}><strong>ZOMBIES:</strong> Te contagian si no los matas antes con el bate, bajarán tu sed y hambre más rápido. Haz clic en el bate del inventario para matarlos</p>
             
-            <p className="text-purple-400" style={{ fontFamily: 'Comic Sans MS, cursive' }}><strong>CASAS:</strong> Haz clic para recoger items. Algunas están bloqueadas y necesitarán más clicks.</p>
+            <p className="text-purple-400" style={{ fontFamily: 'Comic Sans MS, cursive' }}><strong>CASAS:</strong> Haz clic para recoger items. Algunas casas costarán más que otras rebuscar y conseguir algo útil.</p>
             
             <p className="text-yellow-400" style={{ fontFamily: 'Comic Sans MS, cursive' }}><strong>USAR ITEMS:</strong> Haz clic en los items del inventario de abajo para usarlos</p>
           </div>
@@ -371,19 +473,30 @@ export const GameBoard: React.FC = () => {
                 setShowHelp(false);
                 resumeGame();
               }}
-              className="bg-yellow-400 text-black px-6 py-3 sm:px-8 sm:py-4 rounded-xl text-lg sm:text-xl font-black hover:bg-yellow-300 transition-colors touch-manipulation shadow-2xl border-4 border-black transform hover:scale-105"
+              className="bg-yellow-400 text-black px-6 py-3 sm:px-8 sm:py-4 rounded-xl text-lg sm:text-xl font-black hover:bg-yellow-300 transition-colors touch-manipulation shadow-2xl border-4 border-black transform hover:scale-105 relative"
               style={{ 
                 minHeight: '50px',
                 fontFamily: 'Comic Sans MS, cursive',
                 textShadow: '2px 2px 0px #000',
-                boxShadow: '4px 4px 0px #000'
+                boxShadow: '4px 4px 0px #000, 0 0 20px rgba(255, 255, 0, 0.6), 0 0 40px rgba(255, 255, 0, 0.3)',
+                border: '4px solid #000, 2px solid rgba(255, 255, 0, 0.8)'
               }}
             >
+              {/* Efecto de resplandor sucio */}
+              <div 
+                className="absolute inset-0 rounded-xl pointer-events-none"
+                style={{
+                  background: 'linear-gradient(45deg, rgba(255, 255, 0, 0.3) 0%, rgba(255, 255, 0, 0.1) 50%, rgba(255, 255, 0, 0.3) 100%)',
+                  filter: 'blur(1px)',
+                  animation: 'pulse 2s ease-in-out infinite'
+                }}
+              />
               ¡VOLVER AL JUEGO!
             </button>
           </div>
         </div>
       </div>
+      </>
     );
   }
 
@@ -426,15 +539,29 @@ export const GameBoard: React.FC = () => {
           
           <div className="mt-8 space-y-4">
             <button
-              onClick={() => useGameStore.getState().setShowItemSelection(true)}
-              className="bg-yellow-400 text-black px-8 py-4 sm:px-12 sm:py-6 rounded-xl text-xl sm:text-2xl font-black hover:bg-yellow-300 transition-colors touch-manipulation shadow-2xl border-4 border-black transform hover:scale-105"
+              onClick={() => {
+                console.log('BOTÓN ¡AL LÍO! CLICKEADO - Mostrando selección de items...');
+                useGameStore.getState().setShowItemSelection(true);
+                console.log('BOTÓN ¡AL LÍO! - Selección de items mostrada');
+              }}
+              className="bg-yellow-400 text-black px-8 py-4 sm:px-12 sm:py-6 rounded-xl text-xl sm:text-2xl font-black hover:bg-yellow-300 transition-colors touch-manipulation shadow-2xl border-4 border-black transform hover:scale-105 relative"
               style={{ 
                 minHeight: '60px',
                 fontFamily: 'Comic Sans MS, cursive',
                 textShadow: '2px 2px 0px #000',
-                boxShadow: '4px 4px 0px #000'
+                boxShadow: '4px 4px 0px #000, 0 0 20px rgba(255, 255, 0, 0.6), 0 0 40px rgba(255, 255, 0, 0.3)',
+                border: '4px solid #000, 2px solid rgba(255, 255, 0, 0.8)'
               }}
             >
+              {/* Efecto de resplandor sucio */}
+              <div 
+                className="absolute inset-0 rounded-xl pointer-events-none"
+                style={{
+                  background: 'linear-gradient(45deg, rgba(255, 255, 0, 0.3) 0%, rgba(255, 255, 0, 0.1) 50%, rgba(255, 255, 0, 0.3) 100%)',
+                  filter: 'blur(1px)',
+                  animation: 'pulse 2s ease-in-out infinite'
+                }}
+              />
               ¡AL LÍO!
             </button>
             
@@ -446,25 +573,196 @@ export const GameBoard: React.FC = () => {
 
         if (!isPlaying) {
           return (
-            <div 
-              className="min-h-screen flex items-end justify-center bg-cover bg-center bg-no-repeat px-4 pb-16 sm:pb-20"
+            <motion.div
+              className="min-h-screen flex items-end justify-center bg-cover bg-center bg-no-repeat px-4 pb-16 sm:pb-20 relative overflow-hidden"
               style={{ backgroundImage: 'url(/images/portada.png)' }}
+              animate={{
+                backgroundPosition: ['center', 'center 10px', 'center'],
+              }}
+              transition={{
+                duration: 8,
+                repeat: Infinity,
+                ease: "easeInOut"
+              }}
             >
-        <div className="text-center">
-          <button
+              {/* Efectos de "viejo sucio" - Partículas negras flotantes */}
+              <div className="absolute inset-0 overflow-hidden pointer-events-none">
+                {[...Array(25)].map((_, i) => (
+                  <motion.div
+                    key={`dust-${i}`}
+                    className="absolute w-1 h-1 bg-black rounded-full opacity-60"
+                    style={{
+                      left: `${Math.random() * 100}%`,
+                      top: `${Math.random() * 100}%`,
+                    }}
+                    animate={{
+                      y: [0, -30, 0],
+                      x: [0, Math.random() * 20 - 10, 0],
+                      opacity: [0.6, 0.2, 0.6],
+                      scale: [1, 1.5, 1],
+                    }}
+                    transition={{
+                      duration: 6 + Math.random() * 4,
+                      repeat: Infinity,
+                      delay: Math.random() * 3,
+                      ease: "easeInOut"
+                    }}
+                  />
+                ))}
+              </div>
+
+              {/* Efectos de "polvo" más grandes */}
+              <div className="absolute inset-0 overflow-hidden pointer-events-none">
+                {[...Array(8)].map((_, i) => (
+                  <motion.div
+                    key={`smoke-${i}`}
+                    className="absolute w-16 h-16 bg-gray-800 rounded-full opacity-20 blur-sm"
+                    style={{
+                      left: `${Math.random() * 100}%`,
+                      top: `${Math.random() * 100}%`,
+                    }}
+                    animate={{
+                      y: [0, -100, 0],
+                      x: [0, Math.random() * 40 - 20, 0],
+                      opacity: [0.2, 0.05, 0.2],
+                      scale: [1, 1.5, 1],
+                    }}
+                    transition={{
+                      duration: 10 + Math.random() * 5,
+                      repeat: Infinity,
+                      delay: Math.random() * 8,
+                      ease: "easeInOut"
+                    }}
+                  />
+                ))}
+              </div>
+
+              {/* Efectos de "rayas" o "arañazos" */}
+              <div className="absolute inset-0 overflow-hidden pointer-events-none">
+                {[...Array(6)].map((_, i) => (
+                  <motion.div
+                    key={`scratch-${i}`}
+                    className="absolute bg-black opacity-10"
+                    style={{
+                      left: `${Math.random() * 100}%`,
+                      top: `${Math.random() * 100}%`,
+                      width: `${20 + Math.random() * 40}px`,
+                      height: '2px',
+                      transform: `rotate(${Math.random() * 360}deg)`,
+                    }}
+                    animate={{
+                      opacity: [0.1, 0.3, 0.1],
+                      scale: [1, 1.2, 1],
+                    }}
+                    transition={{
+                      duration: 4 + Math.random() * 3,
+                      repeat: Infinity,
+                      delay: Math.random() * 2,
+                      ease: "easeInOut"
+                    }}
+                  />
+                ))}
+              </div>
+
+              {/* Efectos de "manchas" */}
+              <div className="absolute inset-0 overflow-hidden pointer-events-none">
+                {[...Array(12)].map((_, i) => (
+                  <motion.div
+                    key={`stain-${i}`}
+                    className="absolute bg-black rounded-full opacity-5"
+                    style={{
+                      left: `${Math.random() * 100}%`,
+                      top: `${Math.random() * 100}%`,
+                      width: `${10 + Math.random() * 20}px`,
+                      height: `${10 + Math.random() * 20}px`,
+                    }}
+                    animate={{
+                      opacity: [0.05, 0.15, 0.05],
+                      scale: [1, 1.3, 1],
+                    }}
+                    transition={{
+                      duration: 8 + Math.random() * 4,
+                      repeat: Infinity,
+                      delay: Math.random() * 5,
+                      ease: "easeInOut"
+                    }}
+                  />
+                ))}
+              </div>
+
+              <motion.div 
+                className="text-center relative z-10"
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.1, duration: 0.4 }}
+              >
+                <motion.button
+                  whileHover={{ scale: 1.05, y: -2 }}
+                  whileTap={{ scale: 0.95 }}
+                  animate={{ 
+                    y: [0, -2, 0],
+                    scale: [1, 1.02, 1]
+                  }}
+                  transition={{
+                    y: {
+                      duration: 2,
+                      repeat: Infinity,
+                      ease: "easeInOut"
+                    },
+                    scale: {
+                      duration: 2,
+                      repeat: Infinity,
+                      ease: "easeInOut"
+                    }
+                  }}
             onClick={() => useGameStore.getState().setShowManual(true)}
-            className="bg-yellow-400 text-black px-8 py-4 sm:px-12 sm:py-6 rounded-xl text-xl sm:text-2xl font-black hover:bg-yellow-300 transition-colors touch-manipulation shadow-2xl border-4 border-black transform hover:scale-105"
+                  className="bg-yellow-400 text-black px-6 py-3 sm:px-8 sm:py-4 rounded-xl text-lg sm:text-xl font-black hover:bg-yellow-300 transition-colors touch-manipulation shadow-2xl border-4 border-black transform relative whitespace-nowrap"
             style={{ 
-              minHeight: '60px',
+                    minHeight: '50px',
               fontFamily: 'Comic Sans MS, cursive',
               textShadow: '2px 2px 0px #000',
-              boxShadow: '4px 4px 0px #000'
-            }}
-          >
-            ¡EMPEZAR A SOBREVIVIR!
-          </button>
+                    boxShadow: '4px 4px 0px #000, 0 0 20px rgba(255, 255, 0, 0.6), 0 0 40px rgba(255, 255, 0, 0.3)',
+                    border: '4px solid #000, 2px solid rgba(255, 255, 0, 0.8)'
+                  }}
+                >
+                  {/* Efecto de resplandor sucio */}
+                  <div 
+                    className="absolute inset-0 rounded-xl pointer-events-none"
+                    style={{
+                      background: 'linear-gradient(45deg, rgba(255, 255, 0, 0.3) 0%, rgba(255, 255, 0, 0.1) 50%, rgba(255, 255, 0, 0.3) 100%)',
+                      filter: 'blur(1px)',
+                      animation: 'pulse 2s ease-in-out infinite'
+                    }}
+                  />
+                  {/* Efectos de "suciedad" en el botón */}
+                  <div className="absolute inset-0 rounded-xl overflow-hidden pointer-events-none">
+                    {[...Array(3)].map((_, i) => (
+                      <motion.div
+                        key={`button-dust-${i}`}
+                        className="absolute bg-black opacity-20 rounded-full"
+                        style={{
+                          left: `${Math.random() * 100}%`,
+                          top: `${Math.random() * 100}%`,
+                          width: `${2 + Math.random() * 4}px`,
+                          height: `${2 + Math.random() * 4}px`,
+                        }}
+                        animate={{
+                          opacity: [0.2, 0.4, 0.2],
+                          scale: [1, 1.5, 1],
+                        }}
+                        transition={{
+                          duration: 3 + Math.random() * 2,
+                          repeat: Infinity,
+                          delay: Math.random() * 2,
+                          ease: "easeInOut"
+                        }}
+                      />
+                    ))}
         </div>
-      </div>
+                  ¡EMPEZAR A SOBREVIVIR!
+                </motion.button>
+              </motion.div>
+            </motion.div>
     );
   }
 
@@ -552,14 +850,24 @@ export const GameBoard: React.FC = () => {
                 console.log(`GAME BOARD - Botón reintentar presionado`);
                 resetGame();
               }}
-              className="bg-yellow-400 text-black px-6 py-3 sm:px-8 sm:py-4 rounded-xl text-lg sm:text-xl font-black hover:bg-yellow-300 transition-colors touch-manipulation shadow-2xl border-4 border-black transform hover:scale-105"
+              className="bg-yellow-400 text-black px-6 py-3 sm:px-8 sm:py-4 rounded-xl text-lg sm:text-xl font-black hover:bg-yellow-300 transition-colors touch-manipulation shadow-2xl border-4 border-black transform hover:scale-105 relative"
               style={{ 
                 minHeight: '50px',
                 fontFamily: 'Comic Sans MS, cursive',
                 textShadow: '2px 2px 0px #000',
-                boxShadow: '4px 4px 0px #000'
+                boxShadow: '4px 4px 0px #000, 0 0 20px rgba(255, 255, 0, 0.6), 0 0 40px rgba(255, 255, 0, 0.3)',
+                border: '4px solid #000, 2px solid rgba(255, 255, 0, 0.8)'
               }}
             >
+              {/* Efecto de resplandor sucio */}
+              <div 
+                className="absolute inset-0 rounded-xl pointer-events-none"
+                style={{
+                  background: 'linear-gradient(45deg, rgba(255, 255, 0, 0.3) 0%, rgba(255, 255, 0, 0.1) 50%, rgba(255, 255, 0, 0.3) 100%)',
+                  filter: 'blur(1px)',
+                  animation: 'pulse 2s ease-in-out infinite'
+                }}
+              />
               ¡Intentar de Nuevo!
             </button>
           </div>
@@ -579,19 +887,15 @@ export const GameBoard: React.FC = () => {
         itemName={foundItemName}
         itemImage={foundItemImage}
         funnyPhrase={getAbsurdMessage(foundItemName, 1)}
-        isTutorial={showTutorial && tutorialPhase === 'item_revealed'}
-        onClose={() => {
-          setShowItemFoundModal(false);
-          // Limpiar cartas después de cerrar el modal
-          useGameStore.getState().generateCards();
-        }}
+        isTutorial={showTutorial && tutorialPhase === 'food'}
+        onClose={handleItemModalClose}
       />
       {/* HUD del juego */}
       <GameHUD />
       
       
       {/* Contenido principal */}
-      <div className="h-full flex flex-col px-2 sm:px-4 pt-16 sm:pt-20 pb-20 sm:pb-24">
+      <div className="h-full flex flex-col px-2 sm:px-4 pt-16 sm:pt-20 pb-20 sm:pb-20">
         {/* Barras de estado en una línea */}
         <StatusBars />
         
@@ -601,8 +905,11 @@ export const GameBoard: React.FC = () => {
         {/* Cartas */}
         <CardDeck />
         
-        {/* Personaje (más grande) - flex-grow para ocupar espacio restante */}
-        <div className="flex-grow flex items-center justify-center">
+        {/* Indicadores de estado (Frío/Contagiado) - ENTRE CARTAS Y CUCHO */}
+        <StatusIndicators />
+        
+        {/* Personaje - AJUSTADO CON EL SUELO */}
+        <div className="flex-grow flex items-start justify-center pt-8 sm:pt-12 min-h-0">
           <Character />
         </div>
       </div>
@@ -651,6 +958,41 @@ export const GameBoard: React.FC = () => {
         onClose={closeBlockedHouseModal}
       />
       
+      {/* Minijuego de ratas */}
+      <RatsMinigame
+        isVisible={showRatsMinigame}
+        cardId={ratsMinigameCardId || ''}
+        onComplete={completeRatsMinigame}
+        onTimeout={timeoutRatsMinigame}
+      />
+      
+      {/* Minijuego de zombie con bates */}
+      <ZombieBatsMinigame
+        isVisible={showZombieBatsMinigame}
+        cardId={zombieBatsMinigameCardId || ''}
+        onComplete={completeZombieBatsMinigame}
+        onTimeout={timeoutZombieBatsMinigame}
+      />
+      
+      {/* Música de fondo - Debe ir primero para que se monte antes */}
+      
+      {/* Modales de configuración y ranking */}
+      <SettingsModal />
+      <RegisterModal />
+      <RankingModal />
+      
+      {/* Mensaje de Peluso */}
+      <PelusoMessage 
+        isVisible={showPelusoMessage}
+        onRegister={() => {
+          goToRegister();
+        }}
+        onLater={() => {
+          hidePelusoMessage();
+          resumeGame();
+        }}
+      />
+      
       {/* Efecto de vuelo de item */}
       {flyingItem && (
         <div className="fixed inset-0 pointer-events-none z-50">
@@ -662,13 +1004,45 @@ export const GameBoard: React.FC = () => {
             }}
             animate={{ 
               scale: 1, 
-              x: flyingItemType === 'from_bear' ? 200 : 0, 
-              y: flyingItemType === 'from_bear' ? 200 : -200 
+              x: flyingItemType === 'from_bear' ? 200 : 
+                 flyingItem === 'Bate' ? 
+                   // Calcular posición del zombie más cercano
+                   (() => {
+                     const state = useGameStore.getState();
+                     const zombies = state.zombies;
+                     if (zombies.length > 0) {
+                       // Encontrar el zombie más cercano a la posición 0
+                       const closestZombie = zombies.reduce((closest, zombie) => 
+                         zombie.position < closest.position ? zombie : closest
+                       );
+                       // Convertir posición del zombie (0-5) a coordenadas de pantalla
+                       // El grid tiene 6 casillas, cada una ocupa ~16.67% del ancho
+                       const zombieX = (closestZombie.position / 5) * 400 - 200; // -200 a 200
+                       return zombieX;
+                     }
+                     return 0; // Si no hay zombies, ir al centro
+                   })() : 0,
+              y: flyingItemType === 'from_bear' ? 200 : 
+                 flyingItem === 'Bate' ? -100 : -200 // Ir hacia arriba pero no tanto
             }}
             exit={{ 
               scale: 0, 
-              x: flyingItemType === 'from_bear' ? 200 : 0, 
-              y: flyingItemType === 'from_bear' ? 200 : -200 
+              x: flyingItemType === 'from_bear' ? 200 : 
+                 flyingItem === 'Bate' ? 
+                   (() => {
+                     const state = useGameStore.getState();
+                     const zombies = state.zombies;
+                     if (zombies.length > 0) {
+                       const closestZombie = zombies.reduce((closest, zombie) => 
+                         zombie.position < closest.position ? zombie : closest
+                       );
+                       const zombieX = (closestZombie.position / 5) * 400 - 200;
+                       return zombieX;
+                     }
+                     return 0;
+                   })() : 0,
+              y: flyingItemType === 'from_bear' ? 200 : 
+                 flyingItem === 'Bate' ? -100 : -200
             }}
             transition={{ duration: 1, ease: "easeOut" }}
             className="w-12 h-12"
@@ -695,7 +1069,19 @@ export const GameBoard: React.FC = () => {
         onComplete={hideDayTransitionAnimation}
       />
       
+      {/* Música de fondo - SIEMPRE al final */}
+      
     </div>
+  );
+};
+
+// Renderizar BackgroundMusic SIEMPRE fuera de todos los returns condicionales
+export const GameBoard: React.FC = () => {
+  return (
+    <>
+      <BackgroundMusic />
+      <GameBoardComponent />
+    </>
   );
 };
 

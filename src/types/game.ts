@@ -9,6 +9,8 @@ export interface GameState {
   isCold: boolean;
   isShaking: boolean;
   scarfUsedTonight: boolean;
+  coldAppliedTonight: boolean; // Para aplicar frío solo una vez por noche
+  hasShownRegistrationPrompt: boolean; // Para mostrar el prompt de registro solo una vez
   flyingItem: string | null;
   flyingItemType: 'from_inventory' | 'from_bear' | null;
   zombieDeathEffect: {
@@ -43,6 +45,24 @@ export interface GameState {
   skipTutorial: boolean;
   tutorialPhase: 'welcome' | 'food' | 'houses' | 'blocked_house_message' | 'blocked_house_modal' | 'zombie_warning' | 'bat_gift' | 'zombie_kill' | 'cold_night' | 'final' | 'completed' | null;
   gameEnding?: GameEnding;
+  showSettings: boolean;
+  showRanking: boolean;
+  showRegister: boolean;
+  showPelusoMessage: boolean;
+  volume: number;
+  soundEnabled: boolean;
+  playBatHit: (() => void) | null;
+  playEat: (() => void) | null;
+  playDrink: (() => void) | null;
+  playPill: (() => void) | null;
+  playHit: (() => void) | null;
+  playZombieBat: (() => void) | null;
+  playRat: (() => void) | null;
+  playMinigameStart: (() => void) | null;
+  playZombieMinigame: (() => void) | null;
+  playHouseCard: (() => void) | null;
+  playShiver: (() => void) | null;
+  playBackground: (() => void) | null;
   
   // Inventario
   inventory: InventoryItem[];
@@ -50,6 +70,8 @@ export interface GameState {
   // Zombis
   zombies: Zombie[];
   lastZombieSpawnHour: number;
+  zombiesSpawnedTonight: number; // Contador de zombies generados en la noche actual
+  currentNightDay: number; // Día de la noche actual para resetear el contador
   
   // Cartas actuales
   currentCards: Card[];
@@ -68,6 +90,12 @@ export interface GameState {
   blockedHouseCardId: string | null;
   blockedHouseClicks: number;
   blockedHouseTimeout: NodeJS.Timeout | null;
+  
+  // Minijuegos
+  showRatsMinigame: boolean;
+  ratsMinigameCardId: string | null;
+  showZombieBatsMinigame: boolean;
+  zombieBatsMinigameCardId: string | null;
   
   // Tutorial eliminado
   
@@ -104,6 +132,7 @@ export interface Card {
   isRevealed?: boolean;
   hiddenItemType?: CardType; // Item oculto dentro de la casa
   isBlockedHouse?: boolean; // Si esta casa será bloqueada al hacer clic
+  minigameType?: 'blocked' | 'rats' | 'zombiebats' | null; // Tipo de minijuego asociado
 }
 
 export interface Zombie {

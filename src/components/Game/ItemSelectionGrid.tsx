@@ -3,10 +3,11 @@
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useGameStore } from '@/store/gameStore';
+import { ItemType } from '@/types/game';
 
 interface GridItem {
   id: string;
-  type: string;
+  type: ItemType;
   name: string;
   emoji: string;
   image?: string;
@@ -17,7 +18,7 @@ interface GridItem {
 }
 
 export const ItemSelectionGrid: React.FC = () => {
-  const { startGame, addToInventory } = useGameStore();
+  const { startGame, addToInventory, pauseItemSearch } = useGameStore();
   
   // Limpiar inventario al empezar la selección de items
   useEffect(() => {
@@ -28,6 +29,19 @@ export const ItemSelectionGrid: React.FC = () => {
   const [selectedItems, setSelectedItems] = useState<string[]>([]);
   const [usefulItemsCount, setUsefulItemsCount] = useState(0);
   const [isAnimating, setIsAnimating] = useState(false);
+  const [isPaused, setIsPaused] = useState(false);
+
+  // Listener para la tecla 'D' para pausar/continuar
+  useEffect(() => {
+    const handleKeyPress = (event: KeyboardEvent) => {
+      if (event.key.toLowerCase() === 'd') {
+        setIsPaused(prev => !prev);
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyPress);
+    return () => window.removeEventListener('keydown', handleKeyPress);
+  }, []);
 
   // Generar items del grid
   useEffect(() => {
@@ -53,18 +67,18 @@ export const ItemSelectionGrid: React.FC = () => {
       { type: 'junk', name: 'Sombrero', emoji: '🎩', image: '/images/hat.png' },
     ];
 
-    // Crear repeticiones de cada item (caos controlado) - MUCHOS MÁS ITEMS
-    for (let i = 0; i < 200; i++) {
+    // Crear repeticiones de cada item (caos controlado) - MÁS ITEMS
+    for (let i = 0; i < 400; i++) { // Aumentado de 200 a 400 para más items
       const itemType = itemTypes[Math.floor(Math.random() * itemTypes.length)];
       items.push({
         id: `${itemType.type}-${i}`,
-        type: itemType.type,
+        type: itemType.type as ItemType,
         name: itemType.name,
         emoji: itemType.emoji,
         image: itemType.image,
         x: Math.random() * 100,
         y: Math.random() * 100,
-        scale: 0.7 + Math.random() * 0.6, // Más variación de tamaño
+        scale: 0.9 + Math.random() * 0.8, // Más grandes y más variación
         rotation: Math.random() * 360,
       });
     }
@@ -74,23 +88,28 @@ export const ItemSelectionGrid: React.FC = () => {
 
   // Timer de 13 segundos
   useEffect(() => {
-    if (timeLeft > 0) {
+    if (timeLeft > 0 && !isPaused) {
       const timer = setTimeout(() => {
         setTimeLeft(timeLeft - 1);
       }, 1000);
       return () => clearTimeout(timer);
-    } else {
-      // Tiempo agotado, mostrar resumen del inventario
+    } else if (timeLeft === 0) {
+      // Tiempo agotado, parar sonido de búsqueda y mostrar resumen del inventario
+      console.log('ITEM SELECTION - Tiempo agotado, llamando pauseItemSearch...');
+      if (pauseItemSearch) {
+        pauseItemSearch();
+      }
+      console.log('ITEM SELECTION - pauseItemSearch llamado, mostrando resumen...');
       useGameStore.getState().setShowInventorySummary(true);
     }
-  }, [timeLeft, startGame]);
+  }, [timeLeft, isPaused, startGame, pauseItemSearch]);
 
   // Animación continua del grid y regeneración de items
   useEffect(() => {
     const interval = setInterval(() => {
       setGridItems(prev => {
         // Si quedan pocos items, regenerar más
-        if (prev.length < 50) {
+        if (prev.length < 100) {
           const newItems: GridItem[] = [];
           const itemTypes = [
             { type: 'food', name: 'Manzana', emoji: '🍏', image: '/images/apple.png' },
@@ -115,7 +134,7 @@ export const ItemSelectionGrid: React.FC = () => {
             const itemType = itemTypes[Math.floor(Math.random() * itemTypes.length)];
             newItems.push({
               id: `${itemType.type}-${Date.now()}-${i}`,
-              type: itemType.type,
+              type: itemType.type as ItemType,
               name: itemType.name,
               emoji: itemType.emoji,
               image: itemType.image,
@@ -138,7 +157,7 @@ export const ItemSelectionGrid: React.FC = () => {
           scale: 0.8 + Math.random() * 0.4,
         }));
       });
-    }, 2000);
+    }, 2000); // Volver al intervalo original
 
     return () => clearInterval(interval);
   }, []);
@@ -243,30 +262,123 @@ export const ItemSelectionGrid: React.FC = () => {
 
   return (
     <div 
-      className="min-h-screen bg-cover bg-center bg-no-repeat flex flex-col items-center p-4"
+      className="min-h-screen bg-cover bg-center bg-no-repeat flex flex-col items-center justify-center p-2 sm:p-4 relative overflow-hidden"
       style={{ backgroundImage: 'url(/images/coger.png)' }}
     >
-      {/* Texto arriba del contador */}
-      <div className="text-center mt-12 sm:mt-16 mb-2">
-        <h1 className="text-2xl sm:text-3xl font-bold text-white" style={{ fontFamily: 'Comic Sans MS, cursive', textShadow: '2px 2px 0px #000' }}>
-          ¡COGE LO MÁS IMPORTANTE!
-        </h1>
+      {/* Efectos de "viejo sucio" - Partículas negras flotantes */}
+      <div className="absolute inset-0 overflow-hidden pointer-events-none">
+        {[...Array(20)].map((_, i) => (
+          <motion.div
+            key={`dust-${i}`}
+            className="absolute w-1 h-1 bg-black rounded-full opacity-50"
+            style={{
+              left: `${Math.random() * 100}%`,
+              top: `${Math.random() * 100}%`,
+            }}
+            animate={{
+              y: [0, -25, 0],
+              x: [0, Math.random() * 15 - 7.5, 0],
+              opacity: [0.5, 0.1, 0.5],
+              scale: [1, 1.3, 1],
+            }}
+            transition={{
+              duration: 5 + Math.random() * 3,
+              repeat: Infinity,
+              delay: Math.random() * 2,
+              ease: "easeInOut"
+            }}
+          />
+        ))}
       </div>
 
-      {/* Contador grande */}
+      {/* Efectos de "polvo" más grandes */}
+      <div className="absolute inset-0 overflow-hidden pointer-events-none">
+        {[...Array(6)].map((_, i) => (
+          <motion.div
+            key={`smoke-${i}`}
+            className="absolute w-12 h-12 bg-gray-800 rounded-full opacity-15 blur-sm"
+            style={{
+              left: `${Math.random() * 100}%`,
+              top: `${Math.random() * 100}%`,
+            }}
+            animate={{
+              y: [0, -80, 0],
+              x: [0, Math.random() * 30 - 15, 0],
+              opacity: [0.15, 0.03, 0.15],
+              scale: [1, 1.4, 1],
+            }}
+            transition={{
+              duration: 8 + Math.random() * 4,
+              repeat: Infinity,
+              delay: Math.random() * 6,
+              ease: "easeInOut"
+            }}
+          />
+        ))}
+      </div>
+
+      {/* Efectos de "rayas" o "arañazos" */}
+      <div className="absolute inset-0 overflow-hidden pointer-events-none">
+        {[...Array(4)].map((_, i) => (
+          <motion.div
+            key={`scratch-${i}`}
+            className="absolute bg-black opacity-8"
+            style={{
+              left: `${Math.random() * 100}%`,
+              top: `${Math.random() * 100}%`,
+              width: `${15 + Math.random() * 30}px`,
+              height: '1px',
+              transform: `rotate(${Math.random() * 360}deg)`,
+            }}
+            animate={{
+              opacity: [0.08, 0.2, 0.08],
+              scale: [1, 1.1, 1],
+            }}
+            transition={{
+              duration: 3 + Math.random() * 2,
+              repeat: Infinity,
+              delay: Math.random() * 1.5,
+              ease: "easeInOut"
+            }}
+          />
+        ))}
+      </div>
+      {/* Texto arriba del contador - CON EFECTO DE MOVIMIENTO */}
+      <div className="text-center mb-8 sm:mb-12 relative z-10 -mt-32 sm:-mt-40">
+        <motion.h1 
+          className="text-2xl sm:text-3xl md:text-4xl font-bold text-white" 
+          style={{ fontFamily: 'Comic Sans MS, cursive', textShadow: '2px 2px 0px #000' }}
+          animate={{
+            y: [0, -5, 0],
+            opacity: [1, 0.8, 1],
+            scale: [1, 1.05, 1]
+          }}
+          transition={{
+            duration: 2,
+            repeat: Infinity,
+            ease: "easeInOut"
+          }}
+        >
+          ¡COGE LO MÁS IMPORTANTE!
+        </motion.h1>
+      </div>
+
+      {/* Contador grande - BAJADO UN POCO PARA NO SOLAPAR */}
       <motion.div
         key={timeLeft}
         initial={{ scale: 0, rotate: -180 }}
         animate={{ scale: 1, rotate: 0 }}
         transition={{ type: "spring", stiffness: 200, damping: 20 }}
-        className="text-7xl sm:text-8xl font-bold text-white mb-4 text-center"
+        className={`text-6xl sm:text-8xl md:text-9xl font-bold mb-8 sm:mb-12 text-center relative z-10 -mt-8 sm:-mt-12 ${timeLeft <= 3 ? 'text-red-500' : 'text-white'}`}
         style={{ fontFamily: 'Comic Sans MS, cursive', textShadow: '3px 3px 0px #000' }}
       >
         {timeLeft}
       </motion.div>
 
-      {/* Grid de objetos */}
-      <div className="relative w-full max-w-2xl h-[420px] sm:h-[520px] overflow-hidden rounded-lg mt-4 ml-4 sm:ml-6 mx-2 sm:mx-4">
+      {/* Sin indicador visual para no variar el diseño */}
+
+      {/* Grid de objetos - MÁS ESTRECHA Y CENTRADA */}
+      <div className="relative max-w-2xl h-[400px] sm:h-[500px] md:h-[600px] lg:h-[650px] overflow-hidden rounded-lg z-10 mt-6 sm:mt-8 md:mt-12 mx-auto" style={{ width: '95%' }}>
         <AnimatePresence>
           {gridItems.map((item) => (
             <motion.div
@@ -286,18 +398,15 @@ export const ItemSelectionGrid: React.FC = () => {
                 delay: Math.random() * 0.2 // Pequeño delay aleatorio para efecto cascada
               }}
               whileHover={{ 
-                scale: 1.15, 
-                rotate: item.rotation + 15,
-                y: -5,
+                scale: 1.1, 
                 transition: { duration: 0.2 }
               }}
               whileTap={{ 
                 scale: 0.9,
-                rotate: item.rotation - 5,
                 transition: { duration: 0.1 }
               }}
               className={`
-                absolute w-24 h-24 sm:w-28 sm:h-28
+                absolute w-24 h-24 sm:w-32 sm:h-32 md:w-40 md:h-40 lg:w-44 lg:h-44
                 bg-transparent
                 cursor-pointer flex items-center justify-center
                 transition-all duration-300 ease-out
@@ -314,24 +423,22 @@ export const ItemSelectionGrid: React.FC = () => {
                 <img 
                   src={item.image} 
                   alt={item.name}
-                  className="w-18 h-18 sm:w-20 sm:h-20 object-contain"
+                  className="w-20 h-20 sm:w-24 sm:h-24 md:w-32 md:h-32 lg:w-36 lg:h-36 object-contain"
                 />
               ) : (
-                <div className="text-5xl sm:text-6xl">{item.emoji}</div>
+                <div className="text-5xl sm:text-7xl md:text-8xl lg:text-9xl">{item.emoji}</div>
               )}
             </motion.div>
           ))}
         </AnimatePresence>
       </div>
 
-      {/* Texto debajo de la caja */}
-      <div className="mt-12 text-center">
-        <p className="text-sm sm:text-lg text-gray-300" style={{ fontFamily: 'Comic Sans MS, cursive' }}>
+      {/* Texto debajo de la caja - MÁS SEPARADO DE LA CAJA */}
+      <div className="mt-20 sm:mt-24 text-center px-4 relative z-10">
+        <p className="text-sm sm:text-lg md:text-xl text-gray-300" style={{ fontFamily: 'Comic Sans MS, cursive' }}>
           Toca los objetos que quieras llevar contigo
         </p>
       </div>
-
-
     </div>
   );
 };

@@ -41,17 +41,27 @@ export const useGameTimer = () => {
   } = useGameStore();
 
   useEffect(() => {
-    console.log(`TIMER EFFECT - isPlaying: ${isPlaying}, isPaused: ${isPaused}`);
+    // Limpiar timers existentes antes de crear nuevos
+    if (intervalRef.current) {
+      clearInterval(intervalRef.current);
+      intervalRef.current = null;
+    }
+    if (balanceIntervalRef.current) {
+      clearInterval(balanceIntervalRef.current);
+      balanceIntervalRef.current = null;
+    }
+    if (zombieMoveIntervalRef.current) {
+      clearInterval(zombieMoveIntervalRef.current);
+      zombieMoveIntervalRef.current = null;
+    }
+
     if (isPlaying && !isPaused) {
       // Timer principal del juego - avanza tiempo cada segundo
       intervalRef.current = setInterval(() => {
         // Verificar estado actual dentro del callback
         const currentState = useGameStore.getState();
-        console.log(`TIMER PRINCIPAL - Avanzando tiempo (isPlaying: ${currentState.isPlaying}, isPaused: ${currentState.isPaused})`);
-        
         // Si el juego está pausado, no avanzar tiempo
         if (!currentState.isPlaying || currentState.isPaused) {
-          console.log(`TIMER PRINCIPAL - Juego pausado, saltando avance de tiempo (isPlaying: ${currentState.isPlaying}, isPaused: ${currentState.isPaused})`);
           return;
         }
         
@@ -63,11 +73,8 @@ export const useGameTimer = () => {
       zombieMoveIntervalRef.current = setInterval(() => {
         // Verificar estado actual dentro del callback
         const currentState = useGameStore.getState();
-        console.log(`ZOMBIE TIMER - Moviendo zombies cada 15 segundos (isPlaying: ${currentState.isPlaying}, isPaused: ${currentState.isPaused})`);
-        
         // Si el juego está pausado, no mover zombies
         if (!currentState.isPlaying || currentState.isPaused) {
-          console.log(`ZOMBIE TIMER - Juego pausado, saltando movimiento`);
           return;
         }
         
@@ -79,11 +86,8 @@ export const useGameTimer = () => {
       balanceIntervalRef.current = setInterval(() => {
         // Verificar estado actual dentro del callback
         const currentState = useGameStore.getState();
-        console.log(`TIMER TICK - Aplicando efectos cada 10 segundos (isPlaying: ${currentState.isPlaying}, isPaused: ${currentState.isPaused})`);
-        
         // Si el juego está pausado, no aplicar efectos
         if (!currentState.isPlaying || currentState.isPaused) {
-          console.log(`TIMER TICK - Juego pausado, saltando efectos`);
           return;
         }
         
@@ -101,7 +105,6 @@ export const useGameTimer = () => {
         }
         
         // Aplicar drenaje de hambre y sed
-        console.log(`STATS DRAIN - Hambre: -${hungerDrain.toFixed(2)}%, Sed: -${thirstDrain.toFixed(2)}%`);
         updateHunger(-hungerDrain);
         updateThirst(-thirstDrain);
         

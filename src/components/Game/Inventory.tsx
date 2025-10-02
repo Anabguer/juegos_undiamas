@@ -101,15 +101,15 @@ export const Inventory: React.FC = () => {
               whileHover={{ scale: 1.05, y: -2 }}
               whileTap={{ scale: 0.95 }}
               className={`
-                w-24 h-24 sm:w-28 sm:h-28 cursor-pointer
+                w-16 h-16 sm:w-20 sm:h-20 md:w-24 md:h-24 lg:w-28 lg:h-28 cursor-pointer
                 bg-transparent
                 shadow-lg hover:shadow-xl transition-all duration-200
                 flex flex-col items-center justify-center p-1
                 text-white relative touch-manipulation
                 ${quantity === 0 ? 'opacity-30 grayscale' : 'opacity-100'}
-                mx-4
+                mx-1 sm:mx-2 md:mx-3 lg:mx-4
               `}
-              style={{ minHeight: '48px', minWidth: '48px' }}
+              style={{ minHeight: '44px', minWidth: '44px' }}
               onClick={() => {
                 handleItemUse(item.name);
               }}
@@ -118,11 +118,11 @@ export const Inventory: React.FC = () => {
               <img 
                 src={item.image} 
                 alt={item.name}
-                className="w-12 h-12 sm:w-14 sm:h-14 object-contain"
+                className="w-8 h-8 sm:w-10 sm:h-10 md:w-12 md:h-12 lg:w-14 lg:h-14 object-contain"
               />
               
               {/* Contador de cantidad - Estilo retro mejorado */}
-              <div className={`absolute bottom-0 right-0 text-black text-sm sm:text-base rounded-md w-6 h-6 sm:w-7 sm:h-7 flex items-center justify-center font-black border-2 shadow-lg ${quantity > 0 ? 'bg-green-500 border-green-700' : 'bg-gray-500 border-gray-700'}`} style={{ fontFamily: 'Comic Sans MS, cursive' }}>
+              <div className={`absolute bottom-0 right-0 text-black text-xs sm:text-sm md:text-base rounded-md w-5 h-5 sm:w-6 sm:h-6 md:w-7 md:h-7 flex items-center justify-center font-black border-2 shadow-lg ${quantity > 0 ? 'bg-green-500 border-green-700' : 'bg-gray-500 border-gray-700'}`} style={{ fontFamily: 'Comic Sans MS, cursive' }}>
                 {quantity}
               </div>
             </motion.div>

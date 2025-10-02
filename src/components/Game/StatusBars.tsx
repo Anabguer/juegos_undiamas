@@ -47,8 +47,8 @@ export const StatusBars: React.FC = () => {
   });
 
   return (
-    <div className="bg-black bg-opacity-50 rounded-lg p-2 sm:p-4 mb-4 sm:mb-6">
-      <div className="flex flex-row gap-1 sm:gap-4">
+    <div className="bg-black bg-opacity-50 rounded-lg p-2 sm:p-4 mb-4 sm:mb-6 relative">
+      <div className="flex flex-row gap-2 sm:gap-4">
         {/* Barra de Hambre */}
         <div className="flex items-center space-x-1 sm:space-x-2 flex-1">
           <motion.img 
@@ -122,21 +122,6 @@ export const StatusBars: React.FC = () => {
         </div>
       </div>
 
-      {/* Estados especiales */}
-      <div className="mt-2 sm:mt-4 flex justify-center space-x-2 sm:space-x-4">
-        {isInfected && (
-          <div className="flex items-center space-x-1 sm:space-x-2 text-green-400">
-            <span className="text-lg sm:text-xl">🦠</span>
-            <span className="text-xs sm:text-sm font-semibold">Contagiado</span>
-          </div>
-        )}
-        {isCold && (
-          <div className="flex items-center space-x-1 sm:space-x-2 text-blue-400">
-            <span className="text-lg sm:text-xl">❄️</span>
-            <span className="text-xs sm:text-sm font-semibold">Frío</span>
-          </div>
-        )}
-      </div>
     </div>
   );
 };

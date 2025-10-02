@@ -53,7 +53,7 @@ export const FloatingMessage: React.FC<FloatingMessageProps> = ({
           animate={{ opacity: 1, x: 0, scale: 1 }}
           exit={{ opacity: 0, x: -300, scale: 0.8 }}
           transition={{ duration: 0.3, ease: "easeOut" }}
-          className="fixed top-16 left-4 z-[60] max-w-xs"
+          className="fixed top-28 sm:top-32 left-4 z-[60] max-w-xs"
         >
           <div className="bg-black bg-opacity-80 rounded-lg p-3 shadow-2xl border-2 border-yellow-400">
             {/* Imagen del oso y mensaje */}

@@ -1,11 +1,21 @@
 'use client';
 
-import React from 'react';
+import React, { useEffect, useRef } from 'react';
 import { useGameStore } from '@/store/gameStore';
 import { motion } from 'framer-motion';
 
 export const Character: React.FC = () => {
-  const { hunger, thirst, health, isInfected, isCold, characterEffect } = useGameStore();
+  const { hunger, thirst, health, isInfected, isCold, characterEffect, playShiver, soundEnabled } = useGameStore();
+  const previousIsCold = useRef(isCold);
+
+  // Reproducir sonido de tiritar cuando empiece a tener frío
+  useEffect(() => {
+    if (isCold && !previousIsCold.current && playShiver && soundEnabled) {
+      console.log('CHARACTER - Reproduciendo sonido de tiritar...');
+      playShiver();
+    }
+    previousIsCold.current = isCold;
+  }, [isCold, playShiver, soundEnabled]);
 
   const getCharacterState = () => {
     if (isInfected) return 'infected';
@@ -16,12 +26,18 @@ export const Character: React.FC = () => {
   };
 
   const getCharacterImage = () => {
-    // Si hay un efecto temporal, usar char_thirsty para CUALQUIER acción
-    if (characterEffect === 'drinking' || characterEffect === 'eating' || characterEffect === 'healing') {
+    // Si hay un efecto temporal, usar la imagen correspondiente
+    if (characterEffect === 'drinking') {
+      return '/images/char_thirsty.png';
+    }
+    if (characterEffect === 'eating') {
+      return '/images/char_hungry.png';
+    }
+    if (characterEffect === 'healing') {
       return '/images/char_thirsty.png';
     }
     
-    // Si no hay efecto temporal, usar el estado actual (NO normal)
+    // Si no hay efecto temporal, usar el estado actual
     const state = getCharacterState();
     switch (state) {
       case 'infected':
@@ -171,9 +187,9 @@ export const Character: React.FC = () => {
   };
 
   return (
-    <div className="flex justify-center mb-4 sm:mb-8">
+    <div className="flex justify-center mb-1 sm:mb-2">
       <motion.div
-        className={`${getCharacterGlow()} rounded-full p-3 sm:p-6 bg-black bg-opacity-30`}
+        className={`${getCharacterGlow()} rounded-full p-2 sm:p-4 bg-black bg-opacity-30`}
         {...getCharacterAnimation()}
       >
         <img 

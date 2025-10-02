@@ -1,3 +1,5 @@
+
+'use client';
 import { create } from 'zustand';
 import { GameState, Card, Zombie, InventoryItem, GameStats, CardType, ItemType, ZombieType, GameEndingType, CardEffect } from '@/types/game';
 import { BEAR_MESSAGES } from '@/config/characters';
@@ -86,6 +88,25 @@ const initialState: GameState = savedGame ? {
   showItemFoundModal: false,
   foundItemName: '',
   foundItemImage: '',
+  showSettings: false,
+  showRanking: false,
+  showRegister: false,
+  showPelusoMessage: false,
+  volume: 0.5,
+  soundEnabled: true,
+  playBatHit: null,
+  playEat: null,
+  playDrink: null,
+  playPill: null,
+  pauseItemSearch: null,
+  playHit: null,
+  playZombieBat: null,
+  playRat: null,
+  playMinigameStart: null,
+  playZombieMinigame: null,
+  playHouseCard: null,
+  playShiver: null,
+  playBackground: null,
   showInfoModal: false,
   infoTitle: '',
   infoMessage: '',
@@ -96,6 +117,10 @@ const initialState: GameState = savedGame ? {
   blockedHouseCardId: null,
   blockedHouseClicks: 0,
   blockedHouseTimeout: null,
+  showRatsMinigame: false,
+  ratsMinigameCardId: null,
+  showZombieBatsMinigame: false,
+  zombieBatsMinigameCardId: null,
   currentCards: [],
   zombies: [],
   currentMessage: '',
@@ -112,6 +137,8 @@ const initialState: GameState = savedGame ? {
   isCold: false,
   isShaking: false,
   scarfUsedTonight: false, // Para evitar que vuelva el frío si ya usaste bufanda
+  coldAppliedTonight: false, // Para aplicar frío solo una vez por noche
+  hasShownRegistrationPrompt: false, // Para mostrar el prompt de registro solo una vez
   flyingItem: null,
   flyingItemType: null,
   zombieDeathEffect: null, // Efecto visual cuando se mata un zombie
@@ -132,6 +159,25 @@ const initialState: GameState = savedGame ? {
   showItemFoundModal: false,
   foundItemName: '',
   foundItemImage: '',
+  showSettings: false,
+  showRanking: false,
+  showRegister: false,
+  showPelusoMessage: false,
+  volume: 0.5,
+  soundEnabled: true,
+  playBatHit: null,
+  playEat: null,
+  playDrink: null,
+  playPill: null,
+  pauseItemSearch: null,
+  playHit: null,
+  playZombieBat: null,
+  playRat: null,
+  playMinigameStart: null,
+  playZombieMinigame: null,
+  playHouseCard: null,
+  playShiver: null,
+  playBackground: null,
   showInfoModal: false,
   infoTitle: '',
   infoMessage: '',
@@ -146,10 +192,18 @@ const initialState: GameState = savedGame ? {
   blockedHouseClicks: 0,
   blockedHouseTimeout: null, // Timer para cerrar automáticamente
   
+  // Minijuegos
+  showRatsMinigame: false,
+  ratsMinigameCardId: null,
+  showZombieBatsMinigame: false,
+  zombieBatsMinigameCardId: null,
+  
   inventory: [],
   zombies: [],
   currentCards: [],
   lastZombieSpawnHour: 0, // Para controlar cooldown entre spawns
+  zombiesSpawnedTonight: 0, // Contador de zombies generados en la noche actual
+  currentNightDay: 1, // Día de la noche actual
   
   currentMessage: '',
   showMessage: false,
@@ -312,6 +366,17 @@ export const useGameStore = create<GameState & {
   setShowInventorySummary: (show: boolean) => void;
   setShowHelp: (show: boolean) => void;
   setShowItemFoundModal: (show: boolean) => void;
+  setShowSettings: (show: boolean) => void;
+  setShowRanking: (show: boolean) => void;
+  setShowRegister: (show: boolean) => void;
+  setVolume: (volume: number) => void;
+  setSoundEnabled: (enabled: boolean) => void;
+  playBatHit: (() => void) | null;
+  playEat: (() => void) | null;
+  playDrink: (() => void) | null;
+  playPill: (() => void) | null;
+  pauseItemSearch: (() => void) | null;
+  setPauseItemSearch: (fn: (() => void) | null) => void;
   setFoundItem: (name: string, image: string) => void;
   setShowInfoModal: (show: boolean) => void;
   setInfoMessage: (title: string, message: string) => void;
@@ -331,7 +396,6 @@ export const useGameStore = create<GameState & {
   generateCards: () => void;
   generateBlockedHouseForTutorial: () => void;
   selectCard: (cardId: string) => void;
-  clickBlockedHouse: (cardId: string) => void;
   
   // Zombis
   spawnZombie: () => void;
@@ -352,8 +416,11 @@ export const useGameStore = create<GameState & {
   // Mensajes
   displayMessage: (message: string) => void;
   hideMessage: () => void;
+  hidePelusoMessage: () => void;
+  goToRegister: () => void;
   showDayTransitionAnimation: (day: number) => void;
   hideDayTransitionAnimation: () => void;
+  showRegistrationPrompt: () => void;
   
   // Efectos visuales
   triggerShake: () => void;
@@ -366,6 +433,17 @@ export const useGameStore = create<GameState & {
   // Modal de casa bloqueada
   openBlockedHouseModal: (cardId: string) => void;
   closeBlockedHouseModal: () => void;
+  clickBlockedHouse: (cardId: string) => void;
+  
+  // Minijuego de ratas
+  openRatsMinigame: (cardId: string) => void;
+  completeRatsMinigame: () => void;
+  timeoutRatsMinigame: () => void;
+  
+  // Minijuego de zombie con bates
+  openZombieBatsMinigame: (cardId: string) => void;
+  completeZombieBatsMinigame: () => void;
+  timeoutZombieBatsMinigame: () => void;
   
   // Utilidades
   resetGame: () => void;
@@ -378,6 +456,7 @@ export const useGameStore = create<GameState & {
   
   // Acciones del juego
   startGame: () => {
+    console.log('START GAME - Iniciando juego...');
     // Reiniciar completamente el estado del juego
     set({ 
       isPlaying: true, 
@@ -423,6 +502,8 @@ export const useGameStore = create<GameState & {
       isNight: false,
       lastZombieSpawnHour: 0,
       scarfUsedTonight: false, // Resetear bufanda al empezar
+      coldAppliedTonight: false, // Resetear frío al empezar
+  hasShownRegistrationPrompt: false, // Resetear prompt de registro al empezar
       
       // Inventario limpio - NO limpiar aquí, se maneja en ItemSelectionGrid
       // inventory: [],
@@ -436,6 +517,8 @@ export const useGameStore = create<GameState & {
         totalPlayTime: 0
       }
     });
+    
+    console.log('START GAME - Estado actualizado, isPlaying debería ser true');
     
     // Generar cartas inmediatamente
     setTimeout(() => {
@@ -479,6 +562,44 @@ export const useGameStore = create<GameState & {
     
     set({ showItemFoundModal: show });
   },
+  
+  setShowSettings: (show: boolean) => {
+    set({ showSettings: show });
+  },
+  
+  setShowRanking: (show: boolean) => {
+    set({ showRanking: show });
+  },
+  
+  setShowRegister: (show: boolean) => {
+    set({ showRegister: show });
+  },
+  
+  setVolume: (volume: number) => {
+    set({ volume: Math.max(0, Math.min(1, volume)) });
+  },
+  
+  setSoundEnabled: (enabled: boolean) => {
+    set({ soundEnabled: enabled });
+  },
+  
+  setPauseItemSearch: (fn: (() => void) | null) => {
+    set({ pauseItemSearch: fn });
+  },
+  
+  playBatHit: null,
+  playEat: null,
+  playDrink: null,
+  playPill: null,
+  pauseItemSearch: null,
+  playHit: null,
+  playZombieBat: null,
+  playRat: null,
+  playMinigameStart: null,
+  playZombieMinigame: null,
+  playHouseCard: null,
+  playShiver: null,
+  playBackground: null,
   
   setFoundItem: (name: string, image: string) => {
     set({ foundItemName: name, foundItemImage: image });
@@ -613,31 +734,35 @@ export const useGameStore = create<GameState & {
       newHour = 0;
       newDay += 1;
       
-      // Resetear bufanda al empezar nuevo día SOLO si es de día (6:00-20:59)
-      // Si es de noche (21:00-05:59), mantener scarfUsedTonight para que no vuelva el frío
-      if (newHour >= 6 && newHour < 21) {
-        set({ scarfUsedTonight: false });
-        console.log(`NUEVO DÍA - Reseteando scarfUsedTonight para día ${newDay} (es de día)`);
-      } else {
-        console.log(`NUEVO DÍA - Manteniendo scarfUsedTonight para día ${newDay} (es de noche)`);
-      }
+      // NO resetear bufanda al empezar nuevo día - la bufanda se resetea solo al empezar nueva noche
+      console.log(`NUEVO DÍA - Día ${newDay} - bufanda mantiene su estado hasta nueva noche`);
       
       // Mostrar animación de transición de día
       get().showDayTransitionAnimation(newDay);
       
-      // Mensaje de nuevo día del osito (se mostrará después de la animación)
-      setTimeout(() => {
-        const { BEAR_MESSAGES } = require('@/config/characters');
-        const randomMessage = BEAR_MESSAGES.NEW_DAY[Math.floor(Math.random() * BEAR_MESSAGES.NEW_DAY.length)];
-        set({ currentMessage: randomMessage, showMessage: true });
-      }, 2500); // 2.5 segundos después de que empiece la animación
+      // Mostrar prompt de registro el día 3 si no se ha mostrado antes
+      if (newDay === 3 && !state.hasShownRegistrationPrompt) {
+        setTimeout(() => {
+          get().showRegistrationPrompt();
+        }, 3000); // Esperar 3 segundos después de la transición
+      } else {
+        // Mensaje de nuevo día del osito (se mostrará después de la animación)
+        setTimeout(() => {
+          const { BEAR_MESSAGES } = require('@/config/characters');
+          const randomMessage = BEAR_MESSAGES.NEW_DAY[Math.floor(Math.random() * BEAR_MESSAGES.NEW_DAY.length)];
+          set({ currentMessage: randomMessage, showMessage: true });
+        }, 2500); // 2.5 segundos después de que empiece la animación
+      }
     }
     
     // Verificar si es de noche (21:00-05:00) para aplicar frío
     const isNight = newHour >= 21 || newHour < 5;
     const wasDay = state.hour >= 6 && state.hour < 21;
     
-    console.log(`TIME UPDATE - Día: ${state.day} → ${newDay}, Hora: ${state.hour} → ${newHour}, Minuto: ${state.minute} → ${newMinute}`);
+    // Solo mostrar cambios de día o hora importantes
+    if (newDay !== state.day || newHour !== state.hour) {
+      console.log(`TIME UPDATE - Día: ${state.day} → ${newDay}, Hora: ${state.hour} → ${newHour}`);
+    }
     set({ 
       hour: newHour, 
       minute: newMinute, 
@@ -650,17 +775,26 @@ export const useGameStore = create<GameState & {
       get().saveGame();
     }
     
-    // Si es de noche, aplicar frío (a menos que ya haya usado bufanda)
-    if (isNight && !state.isCold && !state.scarfUsedTonight) {
-      console.log(`FRÍO APLICADO - Es de noche, hora: ${newHour}`);
-      set({ isCold: true });
+    // Si es de noche, aplicar frío SOLO UNA VEZ por noche (a menos que ya haya usado bufanda)
+    if (isNight && !state.isCold && !state.scarfUsedTonight && !state.coldAppliedTonight) {
+      console.log(`FRÍO APLICADO - Es de noche, hora: ${newHour}, día: ${newDay} - PRIMERA VEZ ESTA NOCHE`);
+      set({ 
+        isCold: true, 
+        coldAppliedTonight: true 
+      });
       set({ currentMessage: "¡Hace mucho frío! Usa una bufanda para calentarte.", showMessage: true });
     }
     
-    // Si es de noche y ya usó bufanda, no aplicar frío de nuevo
+    // Si es de noche y ya usó bufanda ESTA NOCHE, no aplicar frío de nuevo
     if (isNight && state.scarfUsedTonight) {
-      console.log(`FRÍO PREVENIDO - Es de noche pero ya usó bufanda, hora: ${newHour}`);
+      console.log(`FRÍO PREVENIDO - Es de noche pero ya usó bufanda ESTA NOCHE, hora: ${newHour}, día: ${newDay}`);
       // No hacer nada, el frío ya está controlado
+    }
+    
+    // Si es de noche y ya se aplicó frío ESTA NOCHE, no aplicar de nuevo
+    if (isNight && state.coldAppliedTonight) {
+      console.log(`FRÍO PREVENIDO - Ya se aplicó frío ESTA NOCHE, hora: ${newHour}, día: ${newDay}`);
+      // No hacer nada, el frío ya se aplicó esta noche
     }
     
     // Generar cartas cada hora
@@ -668,53 +802,102 @@ export const useGameStore = create<GameState & {
       get().generateCards();
     }
     
-    // Spawn de zombis con lógica mejorada y progresiva
-    const currentDifficulty = getCurrentDifficulty(newDay);
-    let adjustedSpawnRate = gameConfig.zombieSpawnRate * currentDifficulty;
+    // Spawn de zombis con lógica mejorada y progresiva + GARANTIZADOS
+    let adjustedSpawnRate = 0;
     let canSpawnByTime = false;
+    let minZombiesPerNight = 0;
     
-    // Verificar si tiene arma para protección early-game
-    const hasWeapon = state.inventory.some(item => item.type === ItemType.WEAPON && item.quantity > 0);
-    
-    // Lógica de spawn por días:
-    if (newDay === 1) {
-      // Día 1: Solo zombies por la noche (21:00-05:00)
-      canSpawnByTime = (newHour >= 21 || newHour < 5);
-    } else if (newDay >= 2 && newDay <= 4) {
-      // Días 2-4: Solo zombies por la noche (21:00-05:00)
-      canSpawnByTime = (newHour >= 21 || newHour < 5);
-    } else if (newDay === 5) {
-      // Día 5: Zombies día y noche + mensaje del oso
-      canSpawnByTime = true;
-      // Mostrar mensaje del oso una sola vez
-      if (newHour === 8 && newMinute === 0) { // Solo a las 8:00 del día 5
-        const msg = "Mira, los zombis son más listos que tú y ahora han aprendido a ir de día también... suerte.";
-        // get().showBearGuide(msg);
-      }
-    } else {
-      // Día 6+: Zombies día y noche
-      canSpawnByTime = true;
+    // Resetear contador de zombies cuando empieza una nueva noche
+    if (isNight && state.currentNightDay !== newDay) {
+      set({ 
+        zombiesSpawnedTonight: 0,
+        currentNightDay: newDay,
+        scarfUsedTonight: false, // Resetear bufanda para nueva noche
+        coldAppliedTonight: false // Resetear frío para nueva noche
+      });
+      console.log(`NUEVA NOCHE - Día ${newDay}, reseteando contador de zombies, bufanda y frío`);
     }
     
-    // Protección early-game: no spawnear zombies si no tiene arma en días 2-4
-    if (newDay >= 2 && newDay <= 4 && !hasWeapon) {
-      adjustedSpawnRate = 0;
+    // También resetear al cambiar de día (cuando pasa de noche a día)
+    if (!isNight && state.isNight) {
+      set({ 
+        scarfUsedTonight: false, // Resetear bufanda al empezar el día
+        coldAppliedTonight: false // Resetear frío al empezar el día
+      });
+      console.log(`NUEVO DÍA - Reseteando bufanda y frío al empezar el día`);
+    }
+    
+    // Sistema de dificultad gradual por días
+    if (newDay === 1) {
+      // Día 1: Solo zombies de noche, 1 GARANTIZADO + probabilidad 15%
+      canSpawnByTime = (newHour >= 21 || newHour < 5);
+      adjustedSpawnRate = 0.15;
+      minZombiesPerNight = 1;
+    } else if (newDay === 2) {
+      // Día 2: Solo zombies de noche, 1 GARANTIZADO + probabilidad 25%
+      canSpawnByTime = (newHour >= 21 || newHour < 5);
+      adjustedSpawnRate = 0.25;
+      minZombiesPerNight = 1;
+    } else if (newDay === 3) {
+      // Día 3: Solo zombies de noche, 1 GARANTIZADO + probabilidad 35%
+      canSpawnByTime = (newHour >= 21 || newHour < 5);
+      adjustedSpawnRate = 0.35;
+      minZombiesPerNight = 1;
+    } else if (newDay === 4) {
+      // Día 4: Solo zombies de noche, 1 GARANTIZADO + probabilidad 45%
+      canSpawnByTime = (newHour >= 21 || newHour < 5);
+      adjustedSpawnRate = 0.45;
+      minZombiesPerNight = 1;
+    } else if (newDay === 5) {
+      // Día 5: ¡Los zombies aprenden a salir de día! 2 GARANTIZADOS + probabilidad 30%
+      canSpawnByTime = true;
+      adjustedSpawnRate = 0.30;
+      minZombiesPerNight = 2;
+      
+      // Mostrar mensaje de Peluso una sola vez a las 8:00 del día 5
+      if (newHour === 8 && newMinute === 0) {
+        const msg = "Mira, parece que los zombis son más listos que tú... ahora han aprendido que la luz del sol no les molesta. Suerte, ¡la vas a necesitar!";
+        get().displayMessage(msg);
+      }
+    } else {
+      // Día 6+: Zombies todo el día, 2 GARANTIZADOS + probabilidad aumenta +5% cada día
+      canSpawnByTime = true;
+      adjustedSpawnRate = 0.30 + ((newDay - 5) * 0.05);
+      adjustedSpawnRate = Math.min(0.80, adjustedSpawnRate);
+      minZombiesPerNight = 2;
     }
     
     const hoursSinceLastSpawn = newHour - state.lastZombieSpawnHour;
     const canSpawnByCooldown = hoursSinceLastSpawn >= gameConfig.zombieSpawnCooldown;
     const hasSpaceForZombie = state.zombies.length < gameConfig.maxZombiesAtOnce;
     
-    // Debug: mostrar información de spawn
-    if (newHour % 2 === 0 && newMinute === 0) { // Cada 2 horas
-      console.log(`ZOMBIE DEBUG - Día: ${newDay}, Hora: ${newHour}, canSpawnByTime: ${canSpawnByTime}, canSpawnByCooldown: ${canSpawnByCooldown}, hasSpaceForZombie: ${hasSpaceForZombie}, adjustedSpawnRate: ${adjustedSpawnRate}, zombies: ${state.zombies.length}`);
+    // LÓGICA DE SPAWN: Primero garantizar mínimos, luego probabilidad
+    let shouldSpawn = false;
+    let isGuaranteedSpawn = false;
+    
+    // Si aún no hemos generado los zombies mínimos de la noche
+    if (isNight && state.zombiesSpawnedTonight < minZombiesPerNight && canSpawnByTime && hasSpaceForZombie) {
+      shouldSpawn = true;
+      isGuaranteedSpawn = true;
+    }
+    // Si ya cumplimos los mínimos, aplicar probabilidad normal
+    else if (canSpawnByTime && canSpawnByCooldown && hasSpaceForZombie && Math.random() < adjustedSpawnRate) {
+      shouldSpawn = true;
+      isGuaranteedSpawn = false;
     }
     
-    if (canSpawnByTime && canSpawnByCooldown && hasSpaceForZombie && Math.random() < adjustedSpawnRate) {
-      console.log(`ZOMBIE SPAWNED! Día: ${newDay}, Hora: ${newHour}`);
+    // Debug: mostrar información de spawn
+    if (newHour % 2 === 0 && newMinute === 0) {
+      console.log(`ZOMBIE DEBUG - Día: ${newDay}, Hora: ${newHour}, Spawned tonight: ${state.zombiesSpawnedTonight}/${minZombiesPerNight}, canSpawnByTime: ${canSpawnByTime}, adjustedSpawnRate: ${adjustedSpawnRate}, zombies: ${state.zombies.length}`);
+    }
+    
+    if (shouldSpawn) {
+      console.log(`ZOMBIE SPAWNED! Día: ${newDay}, Hora: ${newHour}, Tipo: ${isGuaranteedSpawn ? 'GARANTIZADO' : 'PROBABILIDAD'}, Total esta noche: ${state.zombiesSpawnedTonight + 1}/${minZombiesPerNight}`);
       get().spawnZombie();
-      // Actualizar la hora del último spawn
-      set({ lastZombieSpawnHour: newHour });
+      set({ 
+        lastZombieSpawnHour: newHour,
+        zombiesSpawnedTonight: state.zombiesSpawnedTonight + 1
+      });
     }
     
     // Los zombies se mueven en su propio timer (cada 15 segundos)
@@ -739,40 +922,83 @@ export const useGameStore = create<GameState & {
     
     const cards: Card[] = [];
     
+    // Calcular probabilidades según el día (dificultad progresiva)
+    // Días 1-2: 35% útiles, 30% comida/agua, 35% basura
+    // Días 3-4: 30% útiles, 30% comida/agua, 40% basura
+    // Día 5+: Cada día -2% útiles, +2% basura (mínimo 10% útiles, máximo 80% basura)
+    let usefulChance = 0.35; // Probabilidad de items útiles
+    let foodWaterChance = 0.30; // Probabilidad de comida/agua
+    
+    if (state.day <= 2) {
+      usefulChance = 0.35;
+      foodWaterChance = 0.30;
+    } else if (state.day <= 4) {
+      usefulChance = 0.30;
+      foodWaterChance = 0.30;
+    } else {
+      // Día 5+: Reduce útiles 2% por día
+      usefulChance = 0.25 - ((state.day - 5) * 0.02);
+      usefulChance = Math.max(0.10, usefulChance); // Mínimo 10%
+      foodWaterChance = 0.30;
+    }
+    
     // TODAS las cartas son casas normales, pero algunas están "marcadas" para ser bloqueadas
     for (let i = 0; i < gameConfig.cardsPerTurn; i++) {
       const random = Math.random();
       let hiddenItemType: CardType;
       let isBlockedHouse = false;
       
-      // Determinar si esta casa será bloqueada (20% probabilidad balanceada)
-      isBlockedHouse = Math.random() < 0.2;
+      // Determinar si esta casa tendrá minijuego (20% probabilidad total)
+      const hasMinigame = Math.random() < 0.2;
+      let minigameType: 'blocked' | 'rats' | 'zombiebats' | null = null;
       
-      // Determinar el item oculto con diferentes probabilidades según si es bloqueada
-      if (isBlockedHouse) {
-        // Casas bloqueadas: mayor probabilidad de items útiles
-        if (random < 0.5) {
-          // 50% útiles (medicina, ropa, arma) - ¡Mucho mejor!
+      console.log(`GENERATE CARDS - Casa ${i + 1}: hasMinigame = ${hasMinigame}`);
+      
+      if (hasMinigame) {
+        // 33% bloqueada, 33% ratas, 33% zombie con bates
+        const random = Math.random();
+        if (random < 0.33) {
+          minigameType = 'blocked';
+        } else if (random < 0.66) {
+          minigameType = 'rats';
+        } else {
+          minigameType = 'zombiebats';
+        }
+        isBlockedHouse = minigameType === 'blocked';
+        console.log(`GENERATE CARDS - Casa ${i + 1}: minigameType = ${minigameType}, isBlockedHouse = ${isBlockedHouse}`);
+      } else {
+        console.log(`GENERATE CARDS - Casa ${i + 1}: Sin minijuego`);
+      }
+      
+      // Determinar el item oculto con diferentes probabilidades según si tiene minijuego
+      if (minigameType === 'blocked' || minigameType === 'rats' || minigameType === 'zombiebats') {
+        // Casas con minijuego: SIEMPRE mejor probabilidad de items útiles (60%)
+        // Aunque no se use en minijuegos (siempre da útil), necesitamos definirlo para evitar errores
+        if (random < 0.6) {
+          // 60% útiles (medicina, ropa, arma) - Recompensa por desbloquear
           const usefulTypes = [CardType.MEDICINE, CardType.CLOTHING, CardType.WEAPON];
           hiddenItemType = usefulTypes[Math.floor(Math.random() * usefulTypes.length)];
-        } else if (random < 0.7) {
-          // 20% comida/agua
+        } else if (random < 0.85) {
+          // 25% comida/agua
           hiddenItemType = Math.random() < 0.5 ? CardType.FOOD : CardType.DRINK;
         } else {
-          // 30% basura (menos basura que casas normales)
+          // 15% basura (mucho menos que casas normales)
           hiddenItemType = CardType.JUNK;
         }
       } else {
-        // Casas normales: probabilidades originales
-        if (random < 0.3) {
-          // 30% comida/agua
+        // Casas normales: probabilidades según dificultad del día
+        const foodWaterThreshold = foodWaterChance;
+        const usefulThreshold = foodWaterChance + usefulChance;
+        
+        if (random < foodWaterThreshold) {
+          // Comida/agua
           hiddenItemType = Math.random() < 0.5 ? CardType.FOOD : CardType.DRINK;
-        } else if (random < 0.4) {
-          // 10% útiles (medicina, ropa, arma)
+        } else if (random < usefulThreshold) {
+          // Útiles (medicina, ropa, arma)
           const usefulTypes = [CardType.MEDICINE, CardType.CLOTHING, CardType.WEAPON];
           hiddenItemType = usefulTypes[Math.floor(Math.random() * usefulTypes.length)];
         } else {
-          // 60% basura
+          // Basura (el resto)
           hiddenItemType = CardType.JUNK;
         }
       }
@@ -788,13 +1014,14 @@ export const useGameStore = create<GameState & {
         emoji: randomCard.emoji,
         image: randomCard.houseImage, // Siempre mostrar casa normal
         houseImage: randomCard.houseImage, // Asegurar que houseImage esté asignado
-        description: `Efecto: ${isBlockedHouse ? 'blocked_house' : randomCard.effect.type}`,
-        effect: { type: isBlockedHouse ? 'blocked_house' : randomCard.effect.type, value: 0 } as CardEffect,
+        description: `Efecto: ${minigameType ? minigameType : randomCard.effect.type}`,
+        effect: { type: minigameType === 'blocked' ? 'blocked_house' : randomCard.effect.type, value: 0 } as CardEffect,
         rarity: 'common' as any,
-        // Guardar el item oculto y si será bloqueada
+        // Guardar el item oculto y si será bloqueada o tendrá minijuego
         hiddenItemType: hiddenItemType,
         isBlockedHouse: isBlockedHouse,
         isBlocked: isBlockedHouse,
+        minigameType: minigameType,
         clicksToUnlock: isBlockedHouse ? 10 : undefined,
         currentClicks: isBlockedHouse ? 0 : undefined
       };
@@ -814,6 +1041,12 @@ export const useGameStore = create<GameState & {
       cards.push(card);
     }
     
+    console.log(`GENERATE CARDS - Cartas generadas:`, cards.map(c => ({ 
+      id: c.id, 
+      minigameType: c.minigameType, 
+      isBlockedHouse: c.isBlockedHouse 
+    })));
+    
     set({ currentCards: cards });
   },
   
@@ -824,6 +1057,11 @@ export const useGameStore = create<GameState & {
     
     if (!card || !card.isBlockedHouse) {
       return;
+    }
+
+    // Reproducir sonido de inicio de minijuego
+    if (state.playMinigameStart && state.soundEnabled) {
+      state.playMinigameStart();
     }
     
     // Limpiar timeout anterior si existe
@@ -874,6 +1112,11 @@ export const useGameStore = create<GameState & {
   // Hacer clic en casa bloqueada
   clickBlockedHouse: (cardId: string) => {
     const state = get();
+    
+    // Reproducir sonido de golpe si está habilitado
+    if (state.playHit && state.soundEnabled) {
+      state.playHit();
+    }
     
     console.log(`CLICK BLOCKED HOUSE - CardId: ${cardId}, Estado actual:`, {
       currentCards: state.currentCards.length,
@@ -978,6 +1221,280 @@ export const useGameStore = create<GameState & {
     // No mostrar mensaje de progreso - los mensajes se muestran en el modal
   },
 
+  // Abrir minijuego de ratas
+  openRatsMinigame: (cardId: string) => {
+    const state = get();
+    const card = state.currentCards.find(c => c.id === cardId);
+    
+    console.warn(`🐀 RATAS MINIGAME - Intentando abrir minijuego para carta ${cardId}`);
+    console.warn(`🐀 RATAS MINIGAME - Carta encontrada:`, card ? `Sí (minigameType: ${card.minigameType})` : 'No');
+    console.warn(`🐀 RATAS MINIGAME - Current cards:`, state.currentCards.map(c => ({ id: c.id, minigameType: c.minigameType })));
+    
+    if (!card || card.minigameType !== 'rats') {
+      console.error(`🐀 RATAS MINIGAME - No se puede abrir - carta no encontrada o tipo incorrecto`);
+      return;
+    }
+
+    // Reproducir sonido de inicio de minijuego
+    if (state.playMinigameStart && state.soundEnabled) {
+      console.warn(`🐀 RATAS MINIGAME - Reproduciendo sonido de inicio`);
+      state.playMinigameStart();
+    }
+    
+    // Abrir minijuego de ratas (sin pausar el juego)
+    console.warn(`🐀 RATAS MINIGAME - Abriendo minijuego para carta ${cardId}`);
+    set({
+      showRatsMinigame: true,
+      ratsMinigameCardId: cardId
+    });
+    
+    console.warn(`🐀 RATAS MINIGAME - Estado actualizado - showRatsMinigame: true`);
+  },
+
+  // Completar minijuego de ratas
+  completeRatsMinigame: () => {
+    const state = get();
+    const cardId = state.ratsMinigameCardId;
+    
+    if (!cardId) {
+      console.log(`RATAS MINIGAME - No hay cardId`);
+      return;
+    }
+    
+    console.warn(`🐀 RATAS MINIGAME - ¡COMPLETADO! CardId: ${cardId}, buscando carta...`);
+    console.warn(`🐀 RATAS MINIGAME - Cartas actuales:`, state.currentCards.map(c => ({ id: c.id, type: c.type, minigameType: c.minigameType })));
+    
+    // Buscar la carta - puede no estar si ya se regeneraron las cartas
+    const card = state.currentCards.find(c => c.id === cardId);
+    
+    if (!card) {
+      console.log(`RATAS MINIGAME - Carta no encontrada en currentCards (probablemente ya se regeneraron). Dando item útil de todas formas...`);
+    } else {
+      console.log(`RATAS MINIGAME - Carta encontrada:`, { id: card.id, hiddenItemType: card.hiddenItemType, minigameType: card.minigameType });
+    }
+    
+    console.log(`RATAS MINIGAME - Iniciando lógica de recompensa...`);
+    
+    // MINIJUEGO DE RATAS: SIEMPRE dar un item útil (como la puerta bloqueada)
+    console.log(`RATAS MINIGAME - Iniciando lógica de item útil garantizado`);
+    
+    const usefulItemTypes = [CardType.FOOD, CardType.DRINK, CardType.MEDICINE, CardType.CLOTHING, CardType.WEAPON];
+    console.log(`RATAS MINIGAME - Tipos útiles disponibles:`, usefulItemTypes);
+    
+    const randomUsefulType = usefulItemTypes[Math.floor(Math.random() * usefulItemTypes.length)];
+    console.log(`RATAS MINIGAME - Tipo seleccionado: ${randomUsefulType}`);
+    
+    const typeData = cardData[randomUsefulType as keyof typeof cardData];
+    console.log(`RATAS MINIGAME - Datos del tipo:`, typeData);
+    
+    if (typeData && typeData.length > 0) {
+      const randomItem = typeData[Math.floor(Math.random() * typeData.length)];
+      
+      console.log(`RATAS MINIGAME - Item útil garantizado: ${randomItem.name} (${randomUsefulType})`);
+      
+      // Añadir el item al inventario
+      get().addToInventory({
+        id: `${randomUsefulType}_${Date.now()}`,
+        type: randomUsefulType as any,
+        name: randomItem.name,
+        emoji: randomItem.emoji,
+        image: (randomItem as any).image || randomItem.emoji,
+        quantity: 1,
+        description: (randomItem as any).description || `Item útil encontrado después de eliminar ratas`
+      });
+      
+    // Cerrar el minijuego y eliminar la carta (si existe)
+    set({
+      currentCards: card ? state.currentCards.filter(c => c.id !== cardId) : state.currentCards,
+      showRatsMinigame: false,
+      ratsMinigameCardId: null,
+    });
+      
+      // Delay para mostrar el modal después de cerrar el minijuego
+      setTimeout(() => {
+        // Mostrar el modal de item encontrado
+        set({
+          showItemFoundModal: true,
+          foundItemName: randomItem.name,
+          foundItemImage: (randomItem as any).image || randomItem.emoji
+        });
+        
+        // Mensaje de Peluso
+        set({
+          currentMessage: "¡Esas ratas no volverán! Y mira lo que encontraste...",
+          showMessage: true
+        });
+      }, 300);
+    
+    } else {
+      console.error(`RATAS MINIGAME - ERROR: No se encontraron datos para el tipo ${randomUsefulType}`);
+      // Cerrar de todas formas si hay error
+      set({
+        currentCards: state.currentCards.filter(c => c.id !== cardId),
+        showRatsMinigame: false,
+        ratsMinigameCardId: null,
+      });
+    }
+  },
+
+  // Timeout del minijuego de ratas (FRACASO)
+  timeoutRatsMinigame: () => {
+    const state = get();
+    const cardId = state.ratsMinigameCardId;
+    
+    if (!cardId) {
+      return;
+    }
+    
+    console.error(`🐀 RATAS MINIGAME - ¡TIMEOUT! No completado a tiempo`);
+    
+    const card = state.currentCards.find(c => c.id === cardId);
+    
+    // Cerrar sin dar recompensa
+    set({
+      currentCards: card ? state.currentCards.filter(c => c.id !== cardId) : state.currentCards,
+      showRatsMinigame: false,
+      ratsMinigameCardId: null,
+    });
+    
+    // Mensaje de fracaso
+    set({
+      currentMessage: "Las ratas se comieron todo. Demasiado lento...",
+      showMessage: true
+    });
+  },
+
+  // Abrir minijuego de zombie con bates
+  openZombieBatsMinigame: (cardId: string) => {
+    const state = get();
+    const card = state.currentCards.find(c => c.id === cardId);
+    
+    console.warn(`🧟 ZOMBIE BATS MINIGAME - Intentando abrir minijuego para carta ${cardId}`);
+    console.warn(`🧟 ZOMBIE BATS MINIGAME - Carta encontrada:`, card ? `Sí (minigameType: ${card.minigameType})` : 'No');
+    console.warn(`🧟 ZOMBIE BATS MINIGAME - Current cards:`, state.currentCards.map(c => ({ id: c.id, minigameType: c.minigameType })));
+    
+    if (!card || card.minigameType !== 'zombiebats') {
+      console.error(`🧟 ZOMBIE BATS MINIGAME - No se puede abrir - carta no encontrada o tipo incorrecto`);
+      return;
+    }
+
+    // Reproducir sonido específico de minijuego de zombie
+    if (state.playZombieMinigame && state.soundEnabled) {
+      console.warn(`🧟 ZOMBIE BATS MINIGAME - Reproduciendo sonido de inicio`);
+      state.playZombieMinigame();
+    }
+    
+    console.warn(`🧟 ZOMBIE BATS MINIGAME - Abriendo minijuego para carta: ${cardId}`);
+    
+    // Abrir minijuego de zombie con bates (sin pausar el juego)
+    set({
+      showZombieBatsMinigame: true,
+      zombieBatsMinigameCardId: cardId
+    });
+    
+    console.warn(`🧟 ZOMBIE BATS MINIGAME - Estado actualizado - showZombieBatsMinigame: true`);
+  },
+
+  // Completar minijuego de zombie con bates (ÉXITO)
+  completeZombieBatsMinigame: () => {
+    const state = get();
+    const cardId = state.zombieBatsMinigameCardId;
+    
+    if (!cardId) {
+      console.log(`ZOMBIE BATS MINIGAME - No hay cardId`);
+      return;
+    }
+    
+    console.warn(`🧟 ZOMBIE BATS MINIGAME - ¡COMPLETADO! CardId: ${cardId}`);
+    
+    const card = state.currentCards.find(c => c.id === cardId);
+    
+    if (!card) {
+      console.log(`ZOMBIE BATS MINIGAME - Carta no encontrada (ya regeneradas). Dando item de todas formas...`);
+    }
+    
+    // MINIJUEGO ZOMBIE BATS: SIEMPRE dar un item útil
+    const usefulItemTypes = [CardType.FOOD, CardType.DRINK, CardType.MEDICINE, CardType.CLOTHING, CardType.WEAPON];
+    const randomUsefulType = usefulItemTypes[Math.floor(Math.random() * usefulItemTypes.length)];
+    
+    console.log(`ZOMBIE BATS MINIGAME - Item útil: ${randomUsefulType}`);
+    
+    const typeData = cardData[randomUsefulType as keyof typeof cardData];
+    
+    if (typeData && typeData.length > 0) {
+      const randomItem = typeData[Math.floor(Math.random() * typeData.length)];
+      
+      console.log(`ZOMBIE BATS MINIGAME - Item garantizado: ${randomItem.name}`);
+      
+      // Añadir el item al inventario
+      get().addToInventory({
+        id: `${randomUsefulType}_${Date.now()}`,
+        type: randomUsefulType as any,
+        name: randomItem.name,
+        emoji: randomItem.emoji,
+        image: (randomItem as any).image || randomItem.emoji,
+        quantity: 1,
+        description: (randomItem as any).description || `Item encontrado tras defender del zombie`
+      });
+      
+      // Cerrar el minijuego y eliminar la carta
+      set({
+        currentCards: card ? state.currentCards.filter(c => c.id !== cardId) : state.currentCards,
+        showZombieBatsMinigame: false,
+        zombieBatsMinigameCardId: null,
+      });
+      
+      // Delay para mostrar el modal
+      setTimeout(() => {
+        set({
+          showItemFoundModal: true,
+          foundItemName: randomItem.name,
+          foundItemImage: (randomItem as any).image || randomItem.emoji
+        });
+        
+        set({
+          currentMessage: "¡Le diste una paliza! Mira lo que dejó...",
+          showMessage: true
+        });
+      }, 300);
+    } else {
+      console.error(`ZOMBIE BATS MINIGAME - ERROR: No se encontraron datos`);
+      set({
+        currentCards: card ? state.currentCards.filter(c => c.id !== cardId) : state.currentCards,
+        showZombieBatsMinigame: false,
+        zombieBatsMinigameCardId: null,
+      });
+    }
+  },
+
+  // Timeout del minijuego de zombie con bates (FRACASO)
+  timeoutZombieBatsMinigame: () => {
+    const state = get();
+    const cardId = state.zombieBatsMinigameCardId;
+    
+    if (!cardId) {
+      return;
+    }
+    
+    console.error(`🧟 ZOMBIE BATS MINIGAME - ¡TIMEOUT! No completado a tiempo`);
+    
+    const card = state.currentCards.find(c => c.id === cardId);
+    
+    // Cerrar sin dar recompensa
+    set({
+      currentCards: card ? state.currentCards.filter(c => c.id !== cardId) : state.currentCards,
+      showZombieBatsMinigame: false,
+      zombieBatsMinigameCardId: null,
+    });
+    
+    // Mensaje de fracaso
+    console.warn(`🧟 ZOMBIE BATS MINIGAME - ¡TIMEOUT! Mostrando mensaje de Peluso`);
+    set({
+      currentMessage: "¡El zombie te alcanzó! Demasiado lento...",
+      showMessage: true
+    });
+  },
+
   // Seleccionar carta
   selectCard: (cardId: string) => {
     const state = get();
@@ -1026,20 +1543,39 @@ export const useGameStore = create<GameState & {
       get().setCold(false);
       // Bufanda se usa normalmente - se gasta 1 cantidad
     } else if (card.effect.type === 'zombie') {
-      get().addToInventory({
-        id: `bate_${Date.now()}`,
-        type: ItemType.WEAPON,
-        name: 'Bate',
-        emoji: '🏏',
-        image: '/images/bat.png',
-        quantity: 1,
-        description: 'Sirve para golpear zombis'
-      });
+      // Matar el zombie más cercano (posición más baja = más cerca)
+      const zombies = state.zombies;
+      if (zombies.length > 0) {
+        // Encontrar el zombie más cercano (menor posición)
+        const closestZombie = zombies.reduce((closest, current) => 
+          current.position < closest.position ? current : closest
+        );
+        
+        console.log(`CARTA ZOMBIE - Matando zombie más cercano: ${closestZombie.id} en posición ${closestZombie.position}`);
+        get().killZombie(closestZombie.id);
+      } else {
+        console.log('CARTA ZOMBIE - No hay zombies para matar');
+        // Si no hay zombies, mostrar mensaje
+        get().displayMessage("No hay zombies cerca para golpear con el bate.");
+      }
     } else if (card.effect.type === 'house') {
-      // Verificar si esta casa está marcada como bloqueada
-      if (card.isBlockedHouse) {
+      // Reproducir sonido de carta-casa
+      if (state.playHouseCard && state.soundEnabled) {
+        state.playHouseCard();
+      }
+      
+      // Verificar si esta casa tiene un minijuego
+      if (card.minigameType === 'blocked') {
         // Abrir modal de puerta bloqueada
         get().openBlockedHouseModal(cardId);
+        return; // No continuar con el resto de la lógica
+      } else if (card.minigameType === 'rats') {
+        // Abrir minijuego de ratas
+        get().openRatsMinigame(cardId);
+        return; // No continuar con el resto de la lógica
+      } else if (card.minigameType === 'zombiebats') {
+        // Abrir minijuego de zombie con bates
+        get().openZombieBatsMinigame(cardId);
         return; // No continuar con el resto de la lógica
       }
       
@@ -1170,18 +1706,43 @@ export const useGameStore = create<GameState & {
   
   // Matar zombi
   killZombie: (zombieId: string) => {
+    // Verificar si hay stores duplicados
+    if (typeof window !== 'undefined') {
+      // @ts-ignore
+      (window as any).__STORE_TOKEN__ ??= Math.random().toString(36).slice(2);
+      console.log('[KILL ZOMBIE STORE TOKEN]', (window as any).__STORE_TOKEN__);
+    }
+
     const state = get();
     const killedZombie = state.zombies.find(z => z.id === zombieId);
     
+    console.log(`KILL ZOMBIE - Llamada recibida para zombie: ${zombieId}`);
+    console.log(`KILL ZOMBIE - Zombies disponibles:`, state.zombies.map(z => z.id));
+    console.log(`KILL ZOMBIE - Zombie encontrado:`, killedZombie);
+    
     if (killedZombie) {
-      console.log(`ZOMBIE KILLED - Zombie ${zombieId} eliminado. Contador antes: ${state.stats.zombiesKilled}, después: ${state.stats.zombiesKilled + 1}`);
+      const newZombiesKilled = state.stats.zombiesKilled + 1;
+      console.log(`ZOMBIE KILLED - Zombie ${zombieId} eliminado. Contador antes: ${state.stats.zombiesKilled}, después: ${newZombiesKilled}`);
       
+      // Reproducir sonido del bate
+      console.log(`KILL ZOMBIE - playBatHit disponible: ${!!state.playBatHit}, soundEnabled: ${state.soundEnabled}`);
+      if (state.playBatHit && state.soundEnabled) {
+        console.log('KILL ZOMBIE - Reproduciendo sonido del bate...');
+        state.playBatHit();
+        console.log('KILL ZOMBIE - Sonido del bate reproducido');
+      } else {
+        console.log('KILL ZOMBIE - No se puede reproducir sonido del bate:', {
+          hasPlayBatHit: !!state.playBatHit,
+          soundEnabled: state.soundEnabled
+        });
+      }
+
       // Eliminar zombie y actualizar contador
       set({ 
         zombies: state.zombies.filter(z => z.id !== zombieId),
         stats: {
           ...state.stats,
-          zombiesKilled: state.stats.zombiesKilled + 1
+          zombiesKilled: newZombiesKilled
         },
         zombieDeathEffect: {
           zombieId: zombieId,
@@ -1195,7 +1756,7 @@ export const useGameStore = create<GameState & {
         set({ zombieDeathEffect: null });
       }, 2000);
       
-      console.log(`ZOMBIE KILLED - Contador actualizado: ${state.stats.zombiesKilled + 1} zombies muertos`);
+      console.log(`ZOMBIE KILLED - Contador actualizado: ${newZombiesKilled} zombies muertos`);
     } else {
       console.log(`ZOMBIE KILLED - ERROR: Zombie ${zombieId} no encontrado`);
     }
@@ -1255,13 +1816,20 @@ export const useGameStore = create<GameState & {
         const zombieToKill = currentState.zombies[0];
         console.log(`BATE USADO - Matando zombie: ${zombieToKill.id}`);
         
+        // Reproducir sonido del bate
+        if (currentState.playBatHit && currentState.soundEnabled) {
+          console.log(`BATE USADO - Reproduciendo sonido del bate`);
+          currentState.playBatHit();
+        }
+        
         // Remover zombie del campo y actualizar contador
         const updatedZombies = currentState.zombies.filter(z => z.id !== zombieToKill.id);
+        const newZombiesKilled = currentState.stats.zombiesKilled + 1;
         set({ 
           zombies: updatedZombies,
           stats: {
             ...currentState.stats,
-            zombiesKilled: currentState.stats.zombiesKilled + 1
+            zombiesKilled: newZombiesKilled
           }
         });
         
@@ -1286,7 +1854,7 @@ export const useGameStore = create<GameState & {
         // Mensaje de éxito
         get().displayMessage("¡Zombie eliminado con el bate!");
         
-        console.log(`ZOMBIE ELIMINADO - Zombies restantes: ${updatedZombies.length}, Contador: ${currentState.stats.zombiesKilled + 1}`);
+        console.log(`ZOMBIE ELIMINADO - Zombies restantes: ${updatedZombies.length}, Contador: ${newZombiesKilled}`);
       } else {
         // No hay zombies - mostrar mensaje de que no hay nada que atacar
         get().displayMessage("No hay zombies para atacar con el bate.");
@@ -1310,6 +1878,11 @@ export const useGameStore = create<GameState & {
     if (item.type === ItemType.FOOD) {
       // Comer comida - restaurar hambre y bajar un poco la sed (realista)
       const state = get();
+      
+      // Reproducir sonido de comer
+      if (state.playEat && state.soundEnabled) {
+        state.playEat();
+      }
       const newHunger = Math.min(100, state.hunger + 30);
       const newThirst = Math.max(0, state.thirst - 10); // -10% sed por comer
       set({ hunger: newHunger, thirst: newThirst });
@@ -1321,6 +1894,11 @@ export const useGameStore = create<GameState & {
     } else if (item.type === ItemType.DRINK) {
       // Beber - restaurar sed y bajar un poco la hambre (realista)
       const state = get();
+      
+      // Reproducir sonido de beber
+      if (state.playDrink && state.soundEnabled) {
+        state.playDrink();
+      }
       const newThirst = Math.min(100, state.thirst + 30);
       const newHunger = Math.max(0, state.hunger - 5); // -5% hambre por beber (menos que la comida da sed)
       set({ thirst: newThirst, hunger: newHunger });
@@ -1328,6 +1906,11 @@ export const useGameStore = create<GameState & {
       console.log(`BEBIDA USADA - Sed: +30 (${state.thirst} → ${newThirst}), Hambre: -5 (${state.hunger} → ${newHunger})`);
       get().triggerCharacterEffect('drinking');
     } else if (item.type === ItemType.MEDICINE) {
+      // Reproducir sonido de pastilla
+      if (state.playPill && state.soundEnabled) {
+        state.playPill();
+      }
+      
       // Tomar medicina - curar infección
       if (state.isInfected) {
         set({ isInfected: false });
@@ -1552,10 +2135,34 @@ export const useGameStore = create<GameState & {
   hideDayTransitionAnimation: () => {
     set({ showDayTransition: false });
   },
+
+  // Mostrar prompt de registro (día 3)
+  showRegistrationPrompt: () => {
+    const state = get();
+    
+    // Pausar el juego y mostrar mensaje de Peluso
+    set({ 
+      isPaused: true,
+      hasShownRegistrationPrompt: true,
+      showPelusoMessage: true
+    });
+    
+    console.log('REGISTRATION PROMPT - Mostrando mensaje de Peluso el día 3');
+  },
   
   // Ocultar mensaje
   hideMessage: () => {
     set({ showMessage: false, showTutorial: false, currentMessage: '' });
+  },
+
+  // Ocultar mensaje de Peluso
+  hidePelusoMessage: () => {
+    set({ showPelusoMessage: false });
+  },
+
+  // Ir al registro desde el mensaje de Peluso
+  goToRegister: () => {
+    set({ showPelusoMessage: false, showRegister: true });
   },
   
   // Activar efecto de temblor

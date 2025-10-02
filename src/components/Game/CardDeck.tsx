@@ -79,40 +79,40 @@ export const CardDeck: React.FC = () => {
     }
 
     // Verificar si tienes el item específico necesario para usar la carta
-    const hasRequiredItem = inventory.some(item => {
-      switch (card.effect.type) {
-        case 'hunger':
-          return item.name === 'Manzana';
-        case 'thirst':
-          return item.name === 'Agua';
-        case 'health':
-        case 'infection':
-          return item.name === 'Pastilla';
-        case 'cold':
-          return item.name === 'Bufanda';
-        case 'zombie':
-          return item.name === 'Bate';
-        case 'house':
-        case 'blocked_house':
-          return true; // Las casas no requieren items
-        default:
-          return true; // Para cartas de basura, siempre se puede usar
-      }
-    });
+    // Las casas y basura no requieren items, así que las excluimos de la verificación
+    if (card.effect.type !== 'house' && card.effect.type !== 'junk') {
+      const hasRequiredItem = inventory.some(item => {
+        switch (card.effect.type) {
+          case 'hunger':
+            return item.name === 'Manzana';
+          case 'thirst':
+            return item.name === 'Agua';
+          case 'health':
+          case 'infection':
+            return item.name === 'Pastilla';
+          case 'cold':
+            return item.name === 'Bufanda';
+          case 'zombie':
+            return item.name === 'Bate';
+          default:
+            return true; // Para otros tipos, siempre se puede usar
+        }
+      });
 
-    if (!hasRequiredItem) {
-      const messages = {
-        hunger: "¡No tienes una Manzana! Busca comida primero.",
-        thirst: "¡No tienes Agua! Busca bebida primero.",
-        health: "¡No tienes una Pastilla! Busca medicina primero.",
-        infection: "¡No tienes una Pastilla! Busca medicina para curar la infección.",
-        cold: "¡No tienes una Bufanda! Busca ropa para abrigarte primero.",
-        zombie: "¡No tienes un Bate! Busca un arma para defenderte primero."
-      };
-      
-      const message = messages[card.effect.type as keyof typeof messages] || "¡No tienes lo necesario para usar esto!";
-      useGameStore.setState({ currentMessage: message, showMessage: true });
-      return;
+      if (!hasRequiredItem) {
+        const messages = {
+          hunger: "¡No tienes una Manzana! Busca comida primero.",
+          thirst: "¡No tienes Agua! Busca bebida primero.",
+          health: "¡No tienes una Pastilla! Busca medicina primero.",
+          infection: "¡No tienes una Pastilla! Busca medicina para curar la infección.",
+          cold: "¡No tienes una Bufanda! Busca ropa para abrigarte primero.",
+          zombie: "¡No tienes un Bate! Busca un arma para defenderte primero."
+        };
+        
+        const message = messages[card.effect.type as keyof typeof messages] || "¡No tienes lo necesario para usar esto!";
+        useGameStore.setState({ currentMessage: message, showMessage: true });
+        return;
+      }
     }
 
     selectCard(cardId);
@@ -165,7 +165,7 @@ export const CardDeck: React.FC = () => {
         </div>
       </div>
 
-      <div className="flex justify-center space-x-2 sm:space-x-4 overflow-x-auto pb-2">
+      <div className="flex justify-center space-x-1 sm:space-x-2 md:space-x-4 overflow-x-auto pb-2 px-2">
         <AnimatePresence>
           {currentCards.map((card, index) => (
             <motion.div
@@ -182,7 +182,7 @@ export const CardDeck: React.FC = () => {
               whileHover={(!isAnimating && !clickCooldown) ? { scale: 1.05, y: -5 } : {}}
               whileTap={(!isAnimating && !clickCooldown) ? { scale: 0.95 } : {}}
               className={`
-                w-24 h-24 sm:w-28 sm:h-28 rounded-lg ${(isAnimating || clickCooldown) ? 'cursor-not-allowed' : 'cursor-pointer'}
+                w-20 h-20 sm:w-28 sm:h-28 md:w-32 md:h-32 rounded-lg ${(isAnimating || clickCooldown) ? 'cursor-not-allowed' : 'cursor-pointer'}
                 shadow-lg hover:shadow-xl transition-all duration-200
                 flex flex-col items-center justify-center p-1 sm:p-2
                 text-white touch-manipulation flex-shrink-0
@@ -191,8 +191,8 @@ export const CardDeck: React.FC = () => {
               `}
               style={{ 
                 backgroundImage: 'url(/images/carta.png)',
-                minHeight: '44px', 
-                minWidth: '44px' 
+                minHeight: '48px', 
+                minWidth: '48px' 
               }}
               onClick={() => {
                 // Bloquear clics durante la animación de cartas
@@ -218,19 +218,19 @@ export const CardDeck: React.FC = () => {
                 <img 
                   src={card.houseImage} 
                   alt={card.name}
-                  className="w-20 h-20 sm:w-24 sm:h-24 mb-1 sm:mb-2 object-contain"
+                  className="w-18 h-18 sm:w-24 sm:h-24 mb-1 sm:mb-2 object-contain"
                 />
               ) : card.effect.type === 'blocked_house' || card.isBlockedHouse ? (
                 <img 
                   src={card.houseImage} 
                   alt={card.name}
-                  className="w-20 h-20 sm:w-24 sm:h-24 mb-1 sm:mb-2 object-contain"
+                  className="w-18 h-18 sm:w-24 sm:h-24 mb-1 sm:mb-2 object-contain"
                 />
               ) : card.image ? (
                 <img 
                   src={card.image} 
                   alt={card.name}
-                  className="w-16 h-16 sm:w-20 sm:h-20 mb-1 sm:mb-2 object-contain"
+                  className="w-14 h-14 sm:w-20 sm:h-20 mb-1 sm:mb-2 object-contain"
                 />
               ) : (
                 <div className="text-3xl sm:text-5xl mb-1 sm:mb-2">{card.emoji}</div>
